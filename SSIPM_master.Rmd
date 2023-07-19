@@ -1,0 +1,82 @@
+---
+title: "SSIPM_master"
+author: "Will White"
+date: '2023-01-10'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+# SSIPM Code for Nickols et al. SONGS artificial reefs project
+# Author: Will White
+# Based on code in White et al. 2016 Ecol Appl and subsequent modifications
+
+# Base code will just estimate F and R for a single site...extensions/modifications as needed
+
+```{r}
+# load necessary libraries (including eventually the SSIPM library)
+
+```
+
+```{r}
+# Read in data
+# This will work best if the data are arranged as abundance in each length bin on the rows, with a column for each annual observation. Missing years should be a column of NAs
+
+```
+
+
+```{r}
+# Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
+Sp <- 'PCLA'
+gridsize = 150
+MCMClen = 100 # how long are MCMC chains
+MCMCchains = 3 # how many chains
+
+# we may be missing a few necessary parameters in create.params()...add in as needed
+fix.param <- create.params(Sp = Sp, gridsize = gridsize,MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
+```
+
+```{r}
+# Set the priors for the parameters to be estimated...this list will need to be adjusted depending on the exact nature of the fitting we are doing
+# for both recruitment & fishing is best done as lognormal.
+# To be added - let the process error term follow an inverse gamma form instead
+Prior$R.mean <- log(10) # recruitment
+Prior$R.sd <- 1
+Prior$F.mean <- log(0.1) # fishing
+Prior$F.sd <- 0.05
+Prior$error.mean = 0.1 # process error sd
+Prior$error.sd = 0.1
+
+Prior$Names <- c('r0','r1','r2','r3','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
+
+Prior$Means <- c(rep(Prior$R.mean,4),Prior$F.mean,Prior$error.mean)
+Prior$SDs <- c(rep(Prior$R.sd,4),Prior$F.sd,Prior$error.sd)
+Prior$Type <- rep('lognormal',6)
+```
+
+```{r}
+# Setup things for fitting via MCMC
+Fit <- fit.SSIPM.MCMC(fix.param,Data,Prior,savename)
+
+# save the results...
+```
+
+```{r}
+#post-processing the chains (work in progress)
+Post.fit <- postproc.MCMC(Fit,fix.param) # combine chains & do diagnostic checks
+
+```
+
+```{r}
+# Examine the prior
+histogram(Post.fit$F)
+
+```
+
+```{r}
+#Posterior predictive checks (still in progress)
+```
