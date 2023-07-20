@@ -1,0 +1,14 @@
+Package: PISCO.file.helpers
+Title: File Loader for PISCO Data
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Will",
+           family = "White",
+           role = c("aut", "cre"),
+           email = "will.white@oregonstate.edu",
+           comment = c(ORCID = "0000-0003-3242-2454"))
+Description: Loads PISCO subtidal, kelp, and SMURF data from raw .csv files and converts to data frames for analysis. Designed for use with MPA_recruitment.Rmd
+License: MIT
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.2
