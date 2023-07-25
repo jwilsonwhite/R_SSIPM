@@ -19,12 +19,74 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # load necessary libraries (including eventually the SSIPM library)
-
+library(tidyverse)
+library(here)
 ```
 
 ```{r}
 # Read in data
 # This will work best if the data are arranged as abundance in each length bin on the rows, with a column for each annual observation. Missing years should be a column of NAs
+
+{
+  #upload phase 2/3 data from online repository
+  {inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/668/3/60afbd5190f50ba5271dacdf74e549f3" 
+  infile1 <- tempfile()
+  try(download.file(inUrl1,infile1,method="curl"))
+  if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+  
+  
+  phase2_3 <-read.csv(infile1,header=F 
+                      ,skip=1
+                      ,sep=","  
+                      , col.names=c(
+                        "year",     
+                        "date",     
+                        "reef_code",     
+                        "polygon",     
+                        "phase_built_code",     
+                        "transect_code",     
+                        "visibility",     
+                        "species_code",     
+                        "genus_name",     
+                        "species_name",     
+                        "count",     
+                        "total_length",     
+                        "total_area_sampled"    ), check.names=TRUE)
+  unlink(infile1)
+  
+  phase2_3 <- phase2_3 %>% 
+    filter(species_code %in% c("PACL", "OXCA", "PANE",
+                               "CHPU", "EMJA", "SEPU")) 
+  }
+  {
+  #add phase 1 data from data folder
+  condpath <- here("data","songs") 
+  files <- dir(path = condpath,
+               pattern = ".csv",
+               full.names = TRUE)
+  songs_1 <- files %>% #iterating over files
+    set_names(nm = files) %>% # set the id for everything in "files"
+    map_df(read_csv, .id = "filename")
+  }
+
+  years <- data.frame(year = c(2000:2022))
+  songs <- bind_rows(songs_1,phase2_3) %>% 
+    select(3:18)
+  songs <- left_join(years, songs)
+}
+
+#get total count
+songstotal <- songs %>% 
+  summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
+  drop_na(total_length) %>% 
+  pivot_wider(names_from = year,values_from = tot_count) %>% 
+  add_column("2008" = NA, "2007" = NA) %>% 
+  relocate(c("2007","2008"), .after = "2006")
+
+#total transect count
+songstransect <- songs %>% 
+  drop_na(transect_code) %>% 
+  summarise(tot_transect = length(unique(transect_code)),.by = c(year, reef_code))
 
 ```
 
