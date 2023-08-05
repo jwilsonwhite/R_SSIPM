@@ -24,7 +24,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
     cand.param <- get.cand(Values[1,],Prior[i],index=NA,CVs[1])
     Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
     Prior.tmp <- calculate.prior(Fit,Prior) # calculate the prior
-    ChainP[1] <- Fit.LL + Prior.tmp
+    ChainP[1] <- Fit$LL + Prior.tmp
     
     # parameter counter for one-at-a-time
     k = 1

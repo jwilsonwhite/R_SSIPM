@@ -15,7 +15,7 @@ kernmat <- function(params,timestep){
   # Y is matrix of sizes at t+1
   
   # Survival part of kernel
-  m = params.M
+  m = params$M
   # Need to update this to include harvesting
   pm = exp(-m*timestep)
   

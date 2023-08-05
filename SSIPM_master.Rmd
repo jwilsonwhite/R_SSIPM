@@ -94,7 +94,7 @@ songstransect <- songs %>%
 ```{r}
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
 Sp <- 'PCLA'
-gridsize = 150
+meshsize = 150
 MCMClen = 100 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
