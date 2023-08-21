@@ -5,11 +5,11 @@
 #' @export
 #
 # 
-create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep = 1){
+create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulation = 1){
   
   # Other inputs may be necessary in the future
   if (Sp == 'PACL'){ 
-    if(timestep <13){ #account for change in fishing regulations in 2013
+    if(regulation == 1){ #account for change in fishing regulations in 2013
     
     # NB I used dummy numbers at first
     M = 0.18 # natural mortality (y^-1)
@@ -22,7 +22,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
     Rsd = 1.53 # sd of recruit size distribution
     
     # IPM details
-    x = seq(0,Lfish*2,length.out=gridsize) # grid of length intervals
+    x = seq(0,Lfish*2,length.out=meshsize) # grid of length intervals
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
@@ -36,7 +36,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
     MCMClen = MCMClen # now many MCMC iterations
     MCMCchains = MCMCchains # how many chains
     }
-    if (timestep >=13){
+    if (regulation == 2){
       M = 0.18 # natural mortality (y^-1)
       Linf = 69.8 # von Bert asymptote, cm
       k = 0.06 # vB growth rate, y^-1
@@ -47,7 +47,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
       Rsd = 1.53 # sd of recruit size distribution
       
       # IPM details
-      x = seq(0,Lfish*2,length.out=gridsize) # grid of length intervals
+      x = seq(0,Lfish*2,length.out=meshsize) # grid of length intervals
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -63,7 +63,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
     }
   }
   else if( Sp == "PANE"){
-    if(timestep <13){
+    if(regulation == 1){
       
       M = 0.22 # natural mortality (y^-1)
       Linf = 60.6 # von Bert asymptote, cm
@@ -75,7 +75,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
       Rsd = 1.53 # sd of recruit size distribution
       
       # IPM details
-      x = seq(0,Lfish*2,length.out=gridsize) # grid of length intervals
+      x = seq(0,Lfish*2,length.out=meshsize) # grid of length intervals
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -89,7 +89,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
       MCMClen = MCMClen # now many MCMC iterations
       MCMCchains = MCMCchains # how many chains
     }
-    if (timestep >=13) {
+    if (regulation == 2) {
       M = 0.22 # natural mortality (y^-1)
       Linf = 60.6 # von Bert asymptote, cm
       k = 0.09 # vB growth rate, y^-1
@@ -100,7 +100,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
       Rsd = 1.53 # sd of recruit size distribution
       
       # IPM details
-      x = seq(0,Lfish*2,length.out=gridsize) # grid of length intervals
+      x = seq(0,Lfish*2,length.out=meshsize) # grid of length intervals
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -126,7 +126,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
     Rsd = 2.14 # sd of recruit size distribution
     
     # IPM details
-    x = seq(0,Lfish*2,length.out=gridsize) # grid of length intervals
+    x = seq(0,Lfish*2,length.out=meshsize) # grid of length intervals
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
@@ -145,9 +145,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, timestep 
       }
   
  # Create list for output
-  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar,Rvec,x,dx,burnin,Q)
+  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar,Rvec,x,dx,burnin,Q,MCMClen,MCMCchains)
   names(fix.parm) <- c('Linf','k','M','Lfish','Lmat','Lvar',
-                       'Rvec','x','dx','burnin','Q')
+                       'Rvec','x','dx','burnin','Q','MCMClen','MCMCchains')
   
  return(fix.parm) 
 }

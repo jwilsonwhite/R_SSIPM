@@ -93,31 +93,34 @@ songstransect <- songs %>%
 
 ```{r}
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
-Sp <- 'PCLA'
+Sp <- 'PACL'
 meshsize = 150
 MCMClen = 100 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
 # we may be missing a few necessary parameters in create.params()...add in as needed
-fix.param <- create.params(Sp = Sp, gridsize = gridsize,MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
+fix.param <- create.params(Sp = Sp, meshsize =  meshsize, MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
 ```
 
 ```{r}
 # Set the priors for the parameters to be estimated...this list will need to be adjusted depending on the exact nature of the fitting we are doing
 # for both recruitment & fishing is best done as lognormal.
 # To be added - let the process error term follow an inverse gamma form instead
-Prior$R.mean <- log(10) # recruitment
-Prior$R.sd <- 1
-Prior$F.mean <- log(0.1) # fishing
-Prior$F.sd <- 0.05
-Prior$error.mean = 0.1 # process error sd
-Prior$error.sd = 0.1
+R.mean <- log(10) # recruitment
+R.sd <- 1
+F.mean <- log(0.1) # fishing
+F.sd <- 0.05
+error.mean = 0.1 # process error sd
+error.sd = 0.1
 
-Prior$Names <- c('r0','r1','r2','r3','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
+Names <- c('r0','r1','r2','r3','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
 
-Prior$Means <- c(rep(Prior$R.mean,4),Prior$F.mean,Prior$error.mean)
-Prior$SDs <- c(rep(Prior$R.sd,4),Prior$F.sd,Prior$error.sd)
-Prior$Type <- rep('lognormal',6)
+Means <- c(rep(R.mean,4),F.mean,error.mean)
+SDs <- c(rep(R.sd,4),F.sd,error.sd)
+Type <- rep('lognormal',6)
+
+Prior <- list(R.mean,R.sd,F.mean,F.sd,error.mean,error.sd,Names,Means,SDs,Type)
+names(Prior) <- c('R.mean','R.sd','F.mean','F.sd','error.mean','error.sd','Names','Means','SDs','Type')
 ```
 
 ```{r}

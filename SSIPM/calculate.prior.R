@@ -21,4 +21,4 @@ calculate.prior <- function(Fit,Prior){
   
   Result = sum(Result)
   return(Result)
-  }
+}
