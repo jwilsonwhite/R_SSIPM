@@ -26,6 +26,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
         
         cand[k] = exp( rnorm(n = 1, mean=log(Init[k]), sd = Prior$SDs[k]*CV) )
         # Note that this generates a random variable on the original scale, not log-transformed
+        names(cand) = Prior$Names
         
       } # end if lognormal (currently the only option)
       

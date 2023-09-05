@@ -18,10 +18,12 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   for (c in 1:Chains){ # if possible it would be nice to parallelize this step.
     
     ChainP <- rep(0,length.out=M) # this holds the posterior proportional evidence (LL + Prior)
-    Values <- matrix(NA,nrow=M,ncol=length(Prior)) 
+    Values <- matrix(NA,nrow=M,ncol=length(Prior$Means)) 
+    Values[1,] <- Prior$Means
+    colnames(Values) <- Names
   
   # Get initial candidate parameter vector  
-    cand.param <- get.cand(Values[1,],Prior[c],index=NA,CVs[1])
+    cand.param <- get.cand(Values[1,],Prior,index=NA,CVs[1])
     Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
     Prior.tmp <- calculate.prior(Fit,Prior) # calculate the prior
     ChainP[1] <- Fit$L + Prior.tmp

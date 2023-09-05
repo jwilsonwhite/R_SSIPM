@@ -28,7 +28,7 @@ kernmat <- function(params,timestep){
   g.tmp = Linfs.mat - (Linfs.mat - X.mat)*exp(-params$k*timestep) # use those two matrices to get the range of possible growth rates, as a function of X
   g.mean = colMeans(g.tmp) # Take the mean across all of the different trajectories for each value of x
   g.mat = t(matrix(g.mean,nrow=length(x),ncol=length(x))) # expand into a matrix with a corresponding value for each value of Y (the size at time t+1)
-  pg = dnorm(Y,mean=g.mat,sd=2*dx) # use dnorm to get the distribution of growth rates (using an arbitrarily small sd)
+  pg = dnorm(Y,mean=g.mat,sd=2*params$dx) # use dnorm to get the distribution of growth rates (using an arbitrarily small sd)
   
   # make sure no negatives
   pg[pg<0] = 0

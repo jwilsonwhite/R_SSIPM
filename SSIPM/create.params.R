@@ -145,9 +145,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       }
   
  # Create list for output
-  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar,Rvec,x,dx,burnin,Q,MCMClen,MCMCchains)
+  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar,Rvec,x,dx,burnin,meshsize,Q,MCMClen,MCMCchains)
   names(fix.parm) <- c('Linf','k','M','Lfish','Lmat','Lvar',
-                       'Rvec','x','dx','burnin','Q','MCMClen','MCMCchains')
+                       'Rvec','x','dx','burnin','meshsize','Q','MCMClen','MCMCchains')
   
  return(fix.parm) 
 }
