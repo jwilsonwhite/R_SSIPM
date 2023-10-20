@@ -18,15 +18,13 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   for (c in 1:Chains){ # if possible it would be nice to parallelize this step.
     
     ChainP <- rep(0,length.out=M) # this holds the posterior proportional evidence (LL + Prior)
-    Values <- matrix(NA,nrow=M,ncol=length(Prior$Means)) 
-    Values[1,] <- Prior$Means
-    colnames(Values) <- Names
+    Values <- matrix(NA,nrow=M,col=length(Prior)) 
   
   # Get initial candidate parameter vector  
-    cand.param <- get.cand(Values[1,],Prior,index=NA,CVs[1])
+    cand.param <- get.cand(Values[1,],Prior[i],index=NA,CVs[1])
     Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
     Prior.tmp <- calculate.prior(Fit,Prior) # calculate the prior
-    ChainP[1] <- Fit$L + Prior.tmp
+    ChainP[1] <- Fit.LL + Prior.tmp
     
     # parameter counter for one-at-a-time
     k = 1
@@ -39,13 +37,12 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       while (!advance){  #delayed rejection
         
       # Generate candidate parameters (one-at-a-time)
-        #### MAKE TYPE OF CANDIDATE A VARIABLE, OR PUT IT IN THE PRIOR
-      cand.param <- get.cand(Values[m,],Prior,type=k,CVs[kk])
+      cand.param <- get.cand(Values[m,],Prior,index=k,CVs[kk]) 
       
   # Run the state-space IPM
   Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
   Prior.tmp <- calculate.prior(Fit,Prior) # calculate the prior
-  Evidence <- Fit$L + Prior.tmp
+  Evidence <- Fit$LL + Prior.tmp
   
   # Metropolis-Hastings
   p = min(1,exp(Evidence - ChainP[m-1])) # Metropolis step, calculating acceptance probability (note this assumes the candidate generating function is symmetric)
@@ -69,6 +66,11 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   } # end if Accept
       } # end delayed rejection while loop
       advance = FALSE
+      # move on to next parameter
+      if (k < length(cand.param)){
+      k = k + 1}
+      else{ k = 1}
+      
   
     } # end loop over m MCMC iterations
     
