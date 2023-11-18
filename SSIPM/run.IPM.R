@@ -33,14 +33,19 @@ run.IPM <- function(fix.param,cand.param,Data){
     #advance the model
     Rt = get("params") [[paste0("r",t)]] # extract the recruitment for this year
     N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec
-    
+  
     # apply particle filter & calculate likelihood
-    if (is.na(Data[1,t])) { next }
-      else{ # if there are observations in this model year, otherwise we just skip it
+    if (!is.na(Data[1,t])){ # if there are observations in this model year, otherwise we just skip it
     Nq = matrix(0,nrow=params$meshsize,ncol=params$Q)
     Lt = rep(NA,params$Q)
+    
     for (q in 1:params$Q){
-      Nq[,q] = rlnorm(n=params$meshsize,meanlog=N[,t],sdlog = params$error) # lognormal process error
+  
+      rlm <- N[,t]
+      rls <- params$error
+      Nq[,q] = rlnorm(n=params$meshsize,meanlog=log(rlm^2 / sqrt(rls^2 + rlm^2))
+                      ,sdlog = sqrt(log(1 + (rls^2 /rlm^2)))) # lognormal process error
+  
       Lt[q] = sum(dpois( x = Data[[t]], lambda = Nq[,q], log = TRUE))# poisson likelihood (note - requires integer count data
       # Could include a correction here for the number of transects observed, if that differs
     }
@@ -63,7 +68,7 @@ run.IPM <- function(fix.param,cand.param,Data){
   
   Ltotal = sum(L,na.rm= TRUE)
   
-  IPM.result = list(L = Ltotal,N = N)
+  IPM.result = list(LL = Ltotal,N = N)
   
   
  return(IPM.result) 
