@@ -6,10 +6,10 @@
 #
 # 
 get.cand <- function(Init,Prior,index = NA,CV = 1){
- 
+
   if (!is.na(index)){ # for just one of the list of parameters
     
-    if (Prior.Type[index] == 'lognormal'){
+    if (Prior$Type[index] == 'lognormal'){
       
       cand = exp( rnorm(n = 1, mean=log(Init), sd = Prior$SDs[index]*CV) )
       # Note that this generates a random variable on the original scale, not log-transformed
@@ -24,7 +24,8 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
     cand  <- rep(NA,length(Init))
     for (k in 1:length(Init)){
       
-      if (Prior.Type[k] == 'lognormal'){
+      if (Prior$Type[k] == 'lognormal'){
+        
         
         cand[k] = exp( rnorm(n = 1, mean=log(Init[k]), sd = Prior$SDs[k]*CV) )
         # Note that this generates a random variable on the original scale, not log-transformed
@@ -33,7 +34,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
       
     } # end loop over all
     Cand.out = cand
+    names(Cand.out) = Prior$Names
   } # end else
-  
-return(Cand.out)   
+return(Cand.out)
 }
