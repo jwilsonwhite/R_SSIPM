@@ -27,7 +27,8 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
     cand.param <- get.cand(Values[1,],Prior,index=NA,CVs[1])
     Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
     Prior.tmp <- calculate.prior(cand.param,Prior) # calculate the prior
-    ChainP[1] <- Fit$L + Prior.tmp
+    ChainP[1] <- Fit$LL + Prior.tmp
+    Values[1,] <- cand.param 
     
     # parameter counter for one-at-a-time
     k = 1
@@ -35,17 +36,18 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
     kk = 1
     advance = FALSE
     
-    for (m in 1:M){ # MCMC steps
+    for (m in 2:M){ # MCMC steps
       
       while (!advance){  #delayed rejection
         
-      # Generate candidate parameters (one-at-a-time)
-      cand.param <- get.cand(Values[m,],Prior,index=k,CVs[kk]) 
+      # Generate candidate parameters (one-at-a-time)  
+      cand.param <- get.cand(Values[m-1,],Prior,index=k,CVs[kk]) 
+      
       
   # Run the state-space IPM
   Fit <- run.IPM(fix.param,cand.param,Data) # returns list Fit with log-likelihood and fit to data
   Prior.tmp <- calculate.prior(cand.param,Prior) # calculate the prior
-  Evidence <- Fit$L + Prior.tmp
+  Evidence <- Fit$LL + Prior.tmp
   
   # Metropolis-Hastings
   p = min(1,exp(Evidence - ChainP[m-1])) # Metropolis step, calculating acceptance probability (note this assumes the candidate generating function is symmetric)
@@ -77,8 +79,8 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   
     } # end loop over m MCMC iterations
     
-    mc_str[[c]]$ChainP <- ChainP
-    mc_str[[c]]$Values <- Values
+    mc_str$ChainP[[c]] <- ChainP
+    mc_str$Values[[c]] <- Values
     
   } # end loop over chains
   save(mc_str,file=savename)
