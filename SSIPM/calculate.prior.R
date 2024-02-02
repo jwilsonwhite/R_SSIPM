@@ -1,5 +1,7 @@
 #' Calculate the (log) prior given a fitted parameter value
 #'
+#' @importFrom invgamma dinvgamma
+#'
 #' @return Value
 #'
 #' @export
@@ -15,9 +17,17 @@ calculate.prior <- function(Cand,Prior){
   for (i in 1:length(Cand)){
     if (Prior$Type[i] == 'lognormal'){
       
-      Result[i] = log(dnorm(log(Cand[i]),mean = Prior$Means[i],sd = Prior$SDs[i]))
+      Result[i] = log(dnorm(log(Cand[i]) ,mean = Prior$Means[i],sd = Prior$SDs[i]))
   
-                      } # end if lognormal (currently there are no other options)
+                      } # end if lognormal 
+    
+    
+    if (Prior$Type[i] == 'invgamma'){
+      
+      Result[i] = invgamma::dinvgamma(Cand[i], shape = Prior$Means[i], scale = Prior$SDs[i], log = TRUE) 
+        # shape and scale same as Prior values for simplicity of code
+                      } #end if inverse gamma
+    
   } # end loop over Cand
   
   Result = sum(Result)

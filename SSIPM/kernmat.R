@@ -16,8 +16,12 @@ kernmat <- function(params,timestep){
   
   # Survival part of kernel
   m = params$M
-  # Need to update this to include harvesting
+  
+  if(all(is.na(params$F.sel))){ #if fishing selectivity is not available
   pm = exp(-m*timestep)
+  } else {
+    pm = exp(-(m + params$F*params$F.sel )*timestep)
+  }
   
   # Growth part of kernel. Do it this way so that we simulate many different growth trajectories in the population, averaged together.
   nLinfs = 1e3 # how many different values of Linf to simulate
