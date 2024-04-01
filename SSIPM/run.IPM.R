@@ -5,7 +5,7 @@
 #' @export
 #
 # 
-run.IPM <- function(fix.param,cand.param,Data,
+run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
                     burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
   
   params = c(fix.param,cand.param)
@@ -16,6 +16,7 @@ run.IPM <- function(fix.param,cand.param,Data,
   # Initialize the model:
   datayears = dim(Data)[2] # how many years of observations
   
+  if(burnin == TRUE){
   N0 = matrix(0,nrow=params$meshsize,ncol=params$burnin) # get the initial distribution
   N0[,1] = params$Rvec * params$r0 # initialize with one pulse of new recruits
   
@@ -32,12 +33,15 @@ run.IPM <- function(fix.param,cand.param,Data,
   }else
     if(!isTRUE(burnin.im ) & !isTRUE( burnin.r)){
       N0[,t] <- K %*% N0[,t-1] * params$dx 
-  }
+    }
   } #end burnin 
+} #end if run burning
   
   # Now run for the time period when we have data
   N = matrix(0,nrow=params$meshsize,ncol=datayears+1)
-  N[,1] = N0[,params$burnin]
+  if(burnin == TRUE){ # if using a burnin period
+    N[,1] = N0[,params$burnin]} else {
+    N[,1] = params$Rvec * params$r1 } # end if burnin 
   colnames(N) = c(1:(datayears+1))
   L = rep(NA,datayears)
   
@@ -57,15 +61,33 @@ run.IPM <- function(fix.param,cand.param,Data,
     if(!isTRUE(ipm.im) & !isTRUE(ipm.r)) { # if include none
       N[,t] = K %*% N[,t-1] * params$dx
     }
-
+  
     # apply particle filter & calculate likelihood
     if (!is.na(Data[1,t])){ # if there are observations in this model year, otherwise we just skip it
     Nq = matrix(0,nrow=params$meshsize,ncol=params$Q)
     Lt = rep(NA,params$Q)
 
     for (q in 1:params$Q){
-      rlm <- N[,t] # lognormal expected value
-      rls <- sqrt(params$error) # lognormal sd
+      rlm <- N[,t] # arithmetic expected value
+      rls <- params$error # arithmetic variance
+      
+      if(any(is.infinite(log(rlm^2 / sqrt(rls^2 + rlm^2))))){ #####!!!!!! Testing
+        warning("Infinite values created. rlm")
+        print("F value")
+        print(params$F)
+        print("Im value")
+        print(params$Im)
+        browser()
+      }
+      if(any(is.infinite(sqrt(log(1 + (rls^2 /rlm^2)))))){ #####!!!!!! Testing
+        warning("Infinite values created. rlm")
+        print("F value")
+        print(params$F)
+        print("Im value")
+        print(params$Im)
+        browser()
+      }
+      
       Nq[,q] = rlnorm(n=params$meshsize,meanlog=log(rlm^2 / sqrt(rls^2 + rlm^2))
                       ,sdlog = sqrt(log(1 + (rls^2 /rlm^2)))) # lognormal process error
       
@@ -77,23 +99,25 @@ run.IPM <- function(fix.param,cand.param,Data,
       # Could include a correction here for the number of transects observed, if that differs
     } 
     
+    if(any(is.infinite(Lt))){
+      warning("Infinite values created. Poisson Likelihood")
+      browser() ##########!!!!! Testing
+    }
+    
     # reweight the observations based on likelihood
     # advance the weighted average
     mLt = sum(Lt)
     Ltt = Lt/mLt
     Ltm = t(matrix(Ltt,nrow=params$Q,ncol=params$meshsize))
-  
+    
     Ntmp = rowSums(Nq * Ltm) # weighted average
  
     N[,t] = Ntmp
 
     L[t-1] =  sum( dpois( x = Data[[t]], lambda = N[,t], log = TRUE) ) # the likelihood
-  
-    } # end if data
-
     
+    } # end if data
   } # end loop over data years
-  
   
   Ltotal = sum(L,na.rm= TRUE)
   

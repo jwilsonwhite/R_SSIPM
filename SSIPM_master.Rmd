@@ -265,7 +265,7 @@ names(Prior) <- c('Names','Means','SDs','Type')
 
 ```{r}
 # Setup things for fitting via MCMC
-Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData', burnin.im = FALSE,burnin.r = FALSE)
+Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData')
 # save the results...
 ```
 

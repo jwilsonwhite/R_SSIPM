@@ -6,7 +6,7 @@
 #
 # 
 fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1/5),
-                           burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
+                           burnin = TRUE, burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
   
   # Set up MCMC
   M = fix.param$MCMClen
@@ -40,7 +40,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       fix.param$Ivec <- stbstate
     } # end if immigration is used
     
-    Fit <- run.IPM(fix.param,cand.param,Data, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
+    Fit <- run.IPM(fix.param,cand.param,Data, burnin = burnin, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
     Prior.tmp <- calculate.prior(cand.param,Prior) # calculate the prior
     ChainP[1] <- Fit$LL + Prior.tmp
     Values[1,] <- cand.param 
@@ -73,7 +73,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       }
       
   # Run the state-space IPM
-  Fit <- run.IPM(fix.param,cand.param,Data, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
+  Fit <- run.IPM(fix.param,cand.param,Data, burnin = burnin, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
   Prior.tmp <- calculate.prior(cand.param,Prior) # calculate the prior
   Evidence <- Fit$LL + Prior.tmp
   
