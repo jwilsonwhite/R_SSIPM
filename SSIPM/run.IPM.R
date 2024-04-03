@@ -34,6 +34,9 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     if(!isTRUE(burnin.im ) & !isTRUE( burnin.r)){
       N0[,t] <- K %*% N0[,t-1] * params$dx 
     }
+    
+  N0[ N0[,t] <= 1e-323, t ] = 1e-323
+    
   } #end burnin 
 } #end if run burning
   
@@ -41,16 +44,20 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   N = matrix(0,nrow=params$meshsize,ncol=datayears+1)
   if(burnin == TRUE){ # if using a burnin period
     N[,1] = N0[,params$burnin]} else {
-    N[,1] = params$Rvec * params$r1 } # end if burnin 
+    N[,1] = params$Rvec * params$r1 
+    } # end if burnin 
   colnames(N) = c(1:(datayears+1))
   L = rep(NA,datayears)
+  
+  
+  N[ N[,1] <= 1e-323, 1 ] = 1e-323
   
   for (t in 2:datayears){
     #advance the model
     Rt = get("params") [[paste0("r",t)]] # extract the recruitment for this year
   
     if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
-    N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec +  params$Im * params$Ivec
+       N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec +  params$Im * params$Ivec
     }else
       if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
       N[,t] = K %*% N[,t-1] * params$dx  + params$Im * params$Ivec
@@ -62,6 +69,8 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       N[,t] = K %*% N[,t-1] * params$dx
     }
   
+    N[ N[,t] <= 1e-323, t ] = 1e-323
+    
     # apply particle filter & calculate likelihood
     if (!is.na(Data[1,t])){ # if there are observations in this model year, otherwise we just skip it
     Nq = matrix(0,nrow=params$meshsize,ncol=params$Q)
@@ -72,7 +81,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       rls <- params$error # arithmetic variance
       
       if(any(is.infinite(log(rlm^2 / sqrt(rls^2 + rlm^2))))){ #####!!!!!! Testing
-        warning("Infinite values created. rlm")
+        warning("Infinite values created. lognormal mean")
         print("F value")
         print(params$F)
         print("Im value")
@@ -80,7 +89,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         browser()
       }
       if(any(is.infinite(sqrt(log(1 + (rls^2 /rlm^2)))))){ #####!!!!!! Testing
-        warning("Infinite values created. rlm")
+        warning("Infinite values created. lognormal sd")
         print("F value")
         print(params$F)
         print("Im value")
@@ -94,6 +103,8 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       if (!is.null( params$correction)){ # if have correction for differing survey area
       Nq[,q] = Nq[,q] * params$correction[1,t] 
       }
+      
+      Nq[ Nq[,q] <= 1e-323,  ] = 1e-323
 
       Lt[q] = sum(dpois( x = Data[[t]], lambda = Nq[,q], log = TRUE)) # poisson likelihood (note - requires integer count data
       # Could include a correction here for the number of transects observed, if that differs

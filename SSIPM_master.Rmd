@@ -246,14 +246,14 @@ R.mean <- log(10) # recruitment
 R.sd <- 1
 Im.mean <- log(10) #immigration
 Im.sd <- 1
-F.mean <- log(0.2) # fishing
-F.sd <- 0.1
+F.mean <- log(0.25) # fishing
+F.sd <- 0.0001
 error.mean = 2 # process error shape
 error.sd = 1 # process error scale
 
 Names <- c(paste0("r",c(0:dim(fishtotal)[2])), "Im",'F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
 
-Means <- abs(c(rep(R.mean,dim(fishtotal)[2]+1), Im.mean ,F.mean,error.mean)) #can't have negative fishing or recruitment
+Means <- c(rep(R.mean,dim(fishtotal)[2]+1), Im.mean ,F.mean,error.mean) #can't have negative fishing or recruitment
 SDs <- c(rep(R.sd,dim(fishtotal)[2]+1), Im.sd,F.sd,error.sd)
 # Type <- rep('lognormal', length(Means))
 Type <- c(rep('lognormal',dim(fishtotal)[2]+1), "lognormal",
@@ -267,6 +267,11 @@ names(Prior) <- c('Names','Means','SDs','Type')
 # Setup things for fitting via MCMC
 Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData')
 # save the results...
+
+# Check fit output
+fit1 <- data.frame(Fit$Values[[1]])
+ggplot(fit1)+
+  geom_point(aes(x = c(1:nrow(fit1)), y = F))
 ```
 
 ```{r}
