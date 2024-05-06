@@ -36,6 +36,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     F.sel = pnorm(x,mean = Fmean, sd = Fsd)
     
     # Immigrant size distribution
+    Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
     Ivec = dlnorm(x, meanlog = log(Immean^2 / sqrt(Imsd^2 + Immean^2)), sdlog = sqrt(log(1 + (Imsd^2 /Immean^2))))
     
     # other model parameters
@@ -69,6 +70,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       
       # Fishing selectivity
       F.sel = pnorm(x,mean = Fmean, sd = Fsd)
+      
+      # Immigrant size distribution
+      Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -105,6 +109,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       # Fishing selectivity
       F.sel = pnorm(x,mean = Fmean, sd = Fsd)
       
+      # Immigrant size distribution
+      Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
+      
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
       Q = 20 # now many particles in the filter
@@ -136,6 +143,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       
       # Fishing selectivity
       F.sel = pnorm(x,mean = Fmean, sd = Fsd)
+      
+      # Immigrant size distribution
+      Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -185,7 +195,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     
   }else if (Sp == "CHPU"){
     
-    M = 0.7 # natural mortality (y^-1)
+    M = 0.65 # natural mortality (y^-1)
     Linf = 22.1 # von Bert asymptote, cm
     k = 0.368 # vB growth rate, y^-1
     Lfish = NA # length of 50% recruitment to fishery (cm)
@@ -204,6 +214,12 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     
     # Recruit size distribution
     Rvec = dnorm(x,mean=Rmean,sd=Rsd)
+    
+    # Immigrant size distribution
+    Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
+    
+    #fishing selectivity
+    F.sel = NA
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -235,6 +251,12 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       # Recruit size distribution
       Rvec = dnorm(x,mean=Rmean,sd=Rsd)
       
+      # Immigrant size distribution
+      Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
+      
+      #fishing selectivity
+      F.sel = NA
+      
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
       Q = 20 # now many particles in the filter
@@ -264,6 +286,12 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       
       # Recruit size distribution
       Rvec = dnorm(x,mean=Rmean,sd=Rsd)
+      
+      # Immigrant size distribution
+      Ifish = length(x[x<14]) #size of Immigration cutoff (cm)
+      
+      #fishing selectivity
+      F.sel = NA
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data

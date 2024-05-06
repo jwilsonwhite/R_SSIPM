@@ -5,7 +5,7 @@
 #' @export
 #
 # 
-fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1/5),
+fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1/5,1/7,1/10,1/13, 1/20),
                            burnin = TRUE, burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
   
   # Set up MCMC
@@ -21,9 +21,6 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
     ChainP <- rep(0,length.out=M) # this holds the posterior proportional evidence (LL + Prior)
     Values <- matrix(NA,nrow=M,ncol =length(Prior$Names)) 
     
-    test <-data.frame(matrix(nrow = M, ncol = 6)) ######!!!!!!!!!! Testing for F
-    colnames(test) <- c("F","error",'k',"kk","r0[-1]","r1[-1]") ######!!!!!!!!!! Testing for F
-    
     Values[1,] <- exp(Prior$Means)
     colnames(Values) <- Names
   
@@ -32,13 +29,13 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
 
     # initiate Immigration size distribution 
     if(isTRUE(ipm.im)|isTRUE(burnin.im)){ #if immigration is used
-      im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
-      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
+      im.cand.param <-  c( rep(1,51), rep(0,4), cand.param["F"],0) #use updated cand.param F value
+      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im0","Im1", 'Im2','Im3','F','error')
       im.data <- Data
       im.data[,c(1:50)] <- NA #not reliant on data
-      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin.im = FALSE, ipm.im = FALSE)
+      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
       stbstate <- im.ipm$N[,50] # Distant future based on IPM
-      stbstate[c(1:fix.param$Ifish)] <- 0
+      stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
       
       #replace Ivec with new stable state distribution
       fix.param$Ivec <- stbstate
@@ -62,18 +59,13 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       # Generate candidate parameters (one-at-a-time)  
       cand.param <- get.cand(Values[m-1,],Prior,index=k,CVs[kk]) 
       
-      test[m,] <- c(cand.param[26],cand.param[27],k,kk,Values[m-1,][1],Values[m-1,][2]) ######!!!!!!!!!! Testing for F
-      if(cand.param[26] > 40){  #arbitrary large F value
-        browser()
-      }#### NOTE: Large F generated similar to r0
-      
       # update Immigration size distribution at each step
       if(isTRUE(ipm.im )| isTRUE(burnin.im)){ #if immigration is used
       im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
       names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
       im.data <- Data
       im.data[,c(1:50)] <- NA #not reliant on data
-      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin.im = FALSE, ipm.im = FALSE)
+      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
       stbstate <- im.ipm$N[,50] # Distant future based on IPM
       stbstate[c(1:fix.param$Ifish)] <- 0
       
@@ -117,7 +109,6 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
     
     mc_str$ChainP[[c]] <- ChainP
     mc_str$Values[[c]] <- Values
-    mc_str$Test[[c]] <- test #######!!!!!tracking Candidate generation
 
   } # end loop over chains
   save(mc_str,file=savename)

@@ -14,7 +14,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
     
     if (Prior$Type[index] == 'lognormal'){
       
-      cand = exp( rnorm(n = 1, mean=log(Init), sd = Prior$SDs[index]*CV) )
+      cand = exp( rnorm(n = 1, mean=log(Init)[index], sd = Prior$SDs[index]*CV) )
       # Note that this generates a random variable on the original scale, not log-transformed
       
       Cand.out = Init
@@ -25,7 +25,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
     if (Prior$Type[index] == "invgamma"){
       
       shape =  Prior$Means[index] #constant uninformative prior
-      scale = Init*(shape-1)
+      scale = Init[index]*(shape-1)
       
       cand = invgamma::rinvgamma(n = 1, shape = shape, scale = scale) 
       

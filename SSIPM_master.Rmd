@@ -38,6 +38,7 @@ source(here("SSIPM","fit.SSIPM.MCMC.R"))
 source(here("SSIPM","get.cand.R"))
 source(here("SSIPM","kernmat.R"))
 source(here("SSIPM","run.IPM.R"))
+source(here("SSIPM","postproc.MCMC.R"))
 ```
 
 ```{r}
@@ -229,7 +230,7 @@ ar.phase <- cbind(years, datyr,phase)
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
 Sp <- 'SEPU'
 meshsize = 100
-MCMClen = 100 # how long are MCMC chains
+MCMClen = 10^5 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
 # we may be missing a few necessary parameters in create.params()...add in as needed
@@ -238,16 +239,17 @@ fix.param$correction <- transect #add survey correction to fix.params
 # fix.param$Ivec <- size_stbstate$stbstate # specify initial immigration size distribution
 ```
 
+
 ```{r}
 # Set the priors for the parameters to be estimated...this list will need to be adjusted depending on the exact nature of the fitting we are doing
 # for both recruitment & fishing is best done as lognormal.
 
-R.mean <- log(10) # recruitment
+R.mean <- log(100) # recruitment
 R.sd <- 1
 Im.mean <- log(10) #immigration
 Im.sd <- 1
 F.mean <- log(0.25) # fishing
-F.sd <- 0.0001
+F.sd <- 0.01
 error.mean = 2 # process error shape
 error.sd = 1 # process error scale
 
@@ -265,27 +267,93 @@ names(Prior) <- c('Names','Means','SDs','Type')
 
 ```{r}
 # Setup things for fitting via MCMC
-Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData')
+Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData', burnin = FALSE)
 # save the results...
 
-# Check fit output
-fit1 <- data.frame(Fit$Values[[1]])
-ggplot(fit1)+
-  geom_point(aes(x = c(1:nrow(fit1)), y = F))
 ```
 
 ```{r}
 #post-processing the chains (work in progress)
-Post.fit <- postproc.MCMC(Fit,fix.param) # combine chains & do diagnostic checks
+Post.fit <- postproc.MCMC(Fit) # combine chains & do diagnostic checks
 
 ```
 
 ```{r}
 # Examine the prior
-hist(Post.fit$F)
+hist(Post.fit$Values[,"Im"])
+
+#Estimated MCMC vaues by chain
+ggplot()+
+  geom_line(data = data.frame(Post.fit), aes(y = PosteriorProb, x = c(1:length(Post.fit$PosteriorProb))), color = "red")+
+  geom_vline(xintercept = 5000, linetype = "dashed")+
+  xlim(100005, length(Post.fit$PosteriorProb))+
+  ylim(min(Post.fit$PosteriorProb[c(100000:150003)]),max(Post.fit$PosteriorProb))
+
+plot(Post.fit$PosteriorProb)
 
 ```
 
 ```{r}
 #Posterior predictive checks (still in progress)
+```
+
+
+### Plots
+```{r plot IPM vs BK size distribution}
+#### BK size distribution
+bk_size <- songs %>% #USING ONLY Phase 1 data
+  mutate(species_code = as_factor(factor(species_code,   #reorder the factors
+ levels = c( "SEPU","PACL","PANE","EMJA","CHPU","OXCA"))),
+total_length = as.numeric(total_length), #change length to numeric
+         reef_code = as_factor(reef_code),
+         year = as.factor(year)) %>%   
+filter( reef_code == "BK") %>% 
+  summarise(count = sum(count), 
+            .by = c(year,total_length, species_code, reef_code, transect_code,total_area_sampled)) %>%     #sum the count through the years
+  uncount(count) %>%                   #reorder so each row = 1 count
+  relocate(year, species_code,reef_code,transect_code, total_length, total_area_sampled) %>%  #reorder df order
+  mutate(count = 1) #make a column so each row has one value
+
+
+### stable state distribution
+     im.cand.param <-  c( rep(1,51), 0, 0.25 ,0) 
+      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im", 'F', 'error')
+      im.data <- fishtotal #data
+      im.data[,c(1:50)] <- NA #not reliant on data but use df structure
+      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin.im = FALSE, ipm.im = FALSE)
+      # stbstate <- im.ipm$N[,50] # Distant future based on IPM
+stb <- data.frame(stbstate)
+im.ipm <- data.frame(stb) %>% add_column("total_length" = 1:length(stbstate)) %>% 
+  mutate(total_length = total_length*fix.param$dx)
+  # mutate(stbstate = if_else(total_length<9,0,stbstate))
+
+#graph
+p.sepu <-  ggplot()+
+  geom_density(bk_size %>% filter( species_code%in% "SEPU")%>%
+                 mutate(year = as_factor(year)),    #data
+              mapping = aes(x = total_length, fill = year))+   #use densiity plot
+   geom_line(im.ipm, mapping = aes( x = total_length, y = stbstate), color = "hotpink")+
+  facet_wrap(~year, ncol = 1, scales = "free_y")+    #separate plots by species
+  scale_x_continuous(breaks = seq(0,75, 10),
+                     limits = c(0,75))+  #scale x to be max length
+  # scale_y_continuous(breaks = seq(0,0.1, 0.08),
+  #                    limits = c(0,0.1))+ #scale y tick mark
+  labs(x = "Total Length (mm)",    #edit axis & legend labels
+       y = "Density",
+       fill = "Year",
+       title = element_text("BK sepu"))+
+  scale_fill_viridis_d()+  #color palatte
+  theme_classic()+
+  theme(panel.background = element_rect(fill = "grey96", color = "black"),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing = unit(1, "mm"),
+        strip.text = element_blank(),
+        legend.position = "none")+
+   geom_text(bk_size %>% filter(species_code%in% "SEPU"),mapping = aes(x = 75, y = 0.05, label = year))
+
+# (p.sepu + p.pacl + p.pane)/(p.emja + p.chpu + p.oxca) +
+#   plot_layout(guides = "collect") &
+#   xlim(0,60)
+  
+
 ```

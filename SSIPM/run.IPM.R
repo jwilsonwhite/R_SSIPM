@@ -42,10 +42,12 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   
   # Now run for the time period when we have data
   N = matrix(0,nrow=params$meshsize,ncol=datayears+1)
+  
   if(burnin == TRUE){ # if using a burnin period
     N[,1] = N0[,params$burnin]} else {
     N[,1] = params$Rvec * params$r1 
     } # end if burnin 
+  
   colnames(N) = c(1:(datayears+1))
   L = rep(NA,datayears)
   
@@ -80,23 +82,6 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       rlm <- N[,t] # arithmetic expected value
       rls <- params$error # arithmetic variance
       
-      if(any(is.infinite(log(rlm^2 / sqrt(rls^2 + rlm^2))))){ #####!!!!!! Testing
-        warning("Infinite values created. lognormal mean")
-        print("F value")
-        print(params$F)
-        print("Im value")
-        print(params$Im)
-        browser()
-      }
-      if(any(is.infinite(sqrt(log(1 + (rls^2 /rlm^2)))))){ #####!!!!!! Testing
-        warning("Infinite values created. lognormal sd")
-        print("F value")
-        print(params$F)
-        print("Im value")
-        print(params$Im)
-        browser()
-      }
-      
       Nq[,q] = rlnorm(n=params$meshsize,meanlog=log(rlm^2 / sqrt(rls^2 + rlm^2))
                       ,sdlog = sqrt(log(1 + (rls^2 /rlm^2)))) # lognormal process error
       
@@ -109,11 +94,6 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       Lt[q] = sum(dpois( x = Data[[t]], lambda = Nq[,q], log = TRUE)) # poisson likelihood (note - requires integer count data
       # Could include a correction here for the number of transects observed, if that differs
     } 
-    
-    if(any(is.infinite(Lt))){
-      warning("Infinite values created. Poisson Likelihood")
-      browser() ##########!!!!! Testing
-    }
     
     # reweight the observations based on likelihood
     # advance the weighted average
