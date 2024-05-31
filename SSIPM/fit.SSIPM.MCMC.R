@@ -29,8 +29,8 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
 
     # initiate Immigration size distribution 
     if(isTRUE(ipm.im)|isTRUE(burnin.im)){ #if immigration is used
-      im.cand.param <-  c( rep(1,51), rep(0,4), cand.param["F"],0) #use updated cand.param F value
-      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im0","Im1", 'Im2','Im3','F','error')
+      im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
+      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
       im.data <- Data
       im.data[,c(1:50)] <- NA #not reliant on data
       im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
@@ -38,7 +38,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
       
       #replace Ivec with new stable state distribution
-      fix.param$Ivec <- stbstate
+      fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
     } # end if immigration is used
     
     Fit <- run.IPM(fix.param,cand.param,Data, burnin = burnin, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
@@ -70,7 +70,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       stbstate[c(1:fix.param$Ifish)] <- 0
       
       #replace Ivec with new stable state distribution
-      fix.param$Ivec <- stbstate
+      fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
       }
       
   # Run the state-space IPM

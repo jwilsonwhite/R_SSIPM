@@ -1,3 +1,4 @@
+
 ---
 title: "SSIPM_master"
 author: "Will White"
@@ -166,7 +167,7 @@ detach(dt1)
   songs <- left_join(years, songs)
 }
 
-#get total count - values from Phase 1 ONLY, Bottom transect
+#get total count - values from Phase 1 reefs ONLY, Bottom transect
 songstotal <- songs %>% 
   filter(phase_built_code == "E", 
          transtype_strata %in% c("BOTTOM",NA)) %>% 
@@ -185,10 +186,10 @@ total_length <- data.frame("total_length" =  as.numeric(c(1:max(fishtotal$total_
 #arrange to have a row for every size bin (1cm increment)
 fishtotal <- fishtotal %>% full_join(.,total_length) %>% 
   filter(total_length %in% c(1:max(fishtotal$total_length))) %>% 
-  arrange(total_length) %>% 
-  select(4:length(fishtotal)) %>% 
+  arrange(total_length) %>%  # re-order dataframe by numerical value
+  select(4:length(fishtotal)) %>% # choose only count of fish
   replace(is.na(.),0) %>% #add NA
-  add_column("2008" = NA, "2007" = NA) %>% 
+  add_column("2008" = NA, "2007" = NA) %>%  # add years not included to be continuous
   relocate(c("2007","2008"), .after = "2006") 
 
 ```
@@ -220,7 +221,7 @@ transect <- as.matrix(transect)
 #Define the phase of AR construction and year (to eventually identify years of AR expansion & fishing regulation)
 years <- years
 datyr <- c(1:dim(fishtotal)[2])
-phase <- c(rep("P1",9),rep("P2",11),rep("P3",dim(fishtotal)[2]-20))
+phase <- c(rep("1",9),rep("2",11),rep("3",dim(fishtotal)[2]-20))
 
 ar.phase <- cbind(years, datyr,phase)
 
@@ -236,7 +237,7 @@ MCMCchains = 3 # how many chains
 # we may be missing a few necessary parameters in create.params()...add in as needed
 fix.param <- create.params(Sp = Sp, meshsize =  meshsize, MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
 fix.param$correction <- transect #add survey correction to fix.params
-# fix.param$Ivec <- size_stbstate$stbstate # specify initial immigration size distribution
+fix.param$phase <- phase
 ```
 
 
@@ -244,26 +245,27 @@ fix.param$correction <- transect #add survey correction to fix.params
 # Set the priors for the parameters to be estimated...this list will need to be adjusted depending on the exact nature of the fitting we are doing
 # for both recruitment & fishing is best done as lognormal.
 
-R.mean <- log(100) # recruitment
+R.mean <- log(5) # recruitment
 R.sd <- 1
-Im.mean <- log(10) #immigration
+Im.mean <- log(5) #immigration
 Im.sd <- 1
 F.mean <- log(0.25) # fishing
 F.sd <- 0.01
 error.mean = 2 # process error shape
 error.sd = 1 # process error scale
 
-Names <- c(paste0("r",c(0:dim(fishtotal)[2])), "Im",'F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
+Names <- c(paste0("r",c(0:(dim(fishtotal)[2]))), 'Im0','Im1','Im2','Im3','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
 
-Means <- c(rep(R.mean,dim(fishtotal)[2]+1), Im.mean ,F.mean,error.mean) #can't have negative fishing or recruitment
-SDs <- c(rep(R.sd,dim(fishtotal)[2]+1), Im.sd,F.sd,error.sd)
+Means <- c(rep(R.mean,dim(fishtotal)[2]+1), rep(Im.mean,4) ,F.mean,error.mean) #can't have negative fishing or recruitment
+SDs <- c(rep(R.sd,dim(fishtotal)[2]+1), rep(Im.sd,4),F.sd,error.sd)
 # Type <- rep('lognormal', length(Means))
-Type <- c(rep('lognormal',dim(fishtotal)[2]+1), "lognormal",
+Type <- c(rep('lognormal',dim(fishtotal)[2]+1), rep('lognormal',4),
           "lognormal", "invgamma") #type for recruitment, immigration, fishing, and process error
 
 Prior <- list(Names,Means,SDs,Type)
 names(Prior) <- c('Names','Means','SDs','Type')
 ```
+
 
 ```{r}
 # Setup things for fitting via MCMC
@@ -280,14 +282,14 @@ Post.fit <- postproc.MCMC(Fit) # combine chains & do diagnostic checks
 
 ```{r}
 # Examine the prior
-hist(Post.fit$Values[,"Im"])
+hist(Post.fit$Values[,"Im"] )
 
 #Estimated MCMC vaues by chain
 ggplot()+
   geom_line(data = data.frame(Post.fit), aes(y = PosteriorProb, x = c(1:length(Post.fit$PosteriorProb))), color = "red")+
   geom_vline(xintercept = 5000, linetype = "dashed")+
-  xlim(100005, length(Post.fit$PosteriorProb))+
-  ylim(min(Post.fit$PosteriorProb[c(100000:150003)]),max(Post.fit$PosteriorProb))
+  xlim(0, length(Post.fit$PosteriorProb))+
+  ylim(min(Post.fit$PosteriorProb[c(0:length(Post.fit$PosteriorProb))]),max(Post.fit$PosteriorProb))
 
 plot(Post.fit$PosteriorProb)
 
@@ -301,59 +303,166 @@ plot(Post.fit$PosteriorProb)
 ### Plots
 ```{r plot IPM vs BK size distribution}
 #### BK size distribution
-bk_size <- songs %>% #USING ONLY Phase 1 data
-  mutate(species_code = as_factor(factor(species_code,   #reorder the factors
- levels = c( "SEPU","PACL","PANE","EMJA","CHPU","OXCA"))),
-total_length = as.numeric(total_length), #change length to numeric
-         reef_code = as_factor(reef_code),
-         year = as.factor(year)) %>%   
-filter( reef_code == "BK") %>% 
-  summarise(count = sum(count), 
-            .by = c(year,total_length, species_code, reef_code, transect_code,total_area_sampled)) %>%     #sum the count through the years
-  uncount(count) %>%                   #reorder so each row = 1 count
-  relocate(year, species_code,reef_code,transect_code, total_length, total_area_sampled) %>%  #reorder df order
-  mutate(count = 1) #make a column so each row has one value
-
-
-### stable state distribution
-     im.cand.param <-  c( rep(1,51), 0, 0.25 ,0) 
-      names(im.cand.param) <- c(paste0("r",c(0:50)), "Im", 'F', 'error')
-      im.data <- fishtotal #data
-      im.data[,c(1:50)] <- NA #not reliant on data but use df structure
-      im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin.im = FALSE, ipm.im = FALSE)
-      # stbstate <- im.ipm$N[,50] # Distant future based on IPM
-stb <- data.frame(stbstate)
-im.ipm <- data.frame(stb) %>% add_column("total_length" = 1:length(stbstate)) %>% 
-  mutate(total_length = total_length*fix.param$dx)
-  # mutate(stbstate = if_else(total_length<9,0,stbstate))
-
-#graph
-p.sepu <-  ggplot()+
-  geom_density(bk_size %>% filter( species_code%in% "SEPU")%>%
-                 mutate(year = as_factor(year)),    #data
-              mapping = aes(x = total_length, fill = year))+   #use densiity plot
-   geom_line(im.ipm, mapping = aes( x = total_length, y = stbstate), color = "hotpink")+
-  facet_wrap(~year, ncol = 1, scales = "free_y")+    #separate plots by species
-  scale_x_continuous(breaks = seq(0,75, 10),
-                     limits = c(0,75))+  #scale x to be max length
-  # scale_y_continuous(breaks = seq(0,0.1, 0.08),
-  #                    limits = c(0,0.1))+ #scale y tick mark
-  labs(x = "Total Length (mm)",    #edit axis & legend labels
-       y = "Density",
-       fill = "Year",
-       title = element_text("BK sepu"))+
-  scale_fill_viridis_d()+  #color palatte
-  theme_classic()+
-  theme(panel.background = element_rect(fill = "grey96", color = "black"),
-        plot.title = element_text(hjust = 0.5),
-        panel.spacing = unit(1, "mm"),
-        strip.text = element_blank(),
-        legend.position = "none")+
-   geom_text(bk_size %>% filter(species_code%in% "SEPU"),mapping = aes(x = 75, y = 0.05, label = year))
-
+# Sp <- 'OXCA'
+# # we may be missing a few necessary parameters in create.params()...add in as needed
+# fix.param <- create.params(Sp = Sp, meshsize =  meshsize, MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
+# fix.param$correction <- transect #add survey correction to fix.params
+# fix.param$phase <- phase
+# 
+# bk_size <- songs %>% #USING ONLY Phase 1 data
+#   mutate(species_code = as_factor(factor(species_code,   #reorder the factors
+#  levels = c( "SEPU","PACL","PANE","EMJA","CHPU","OXCA"))),
+# total_length = as.numeric(total_length), #change length to numeric
+#          reef_code = as_factor(reef_code),
+#          year = as.factor(year)) %>%   
+# filter( reef_code == "BK") %>% 
+#   summarise(count = sum(count), 
+#             .by = c(year,total_length, species_code, reef_code, transect_code,total_area_sampled)) %>%     #sum the count through the years
+#   uncount(count) %>%                   #reorder so each row = 1 count
+#   relocate(year, species_code,reef_code,transect_code, total_length, total_area_sampled) %>%  #reorder df order
+#   mutate(count = 1) #make a column so each row has one value
+# 
+# 
+# ### stable state distribution
+#      im.cand.param <-  c( rep(1,51), 0, 0.25 ,0) 
+#       names(im.cand.param) <- c(paste0("r",c(0:50)), "Im", 'F', 'error')
+#       im.data <- fishtotal #data
+#       im.data[,c(1:50)] <- NA #not reliant on data but use df structure
+#       im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin.im = FALSE, ipm.im = FALSE, burnin = FALSE)
+#       stbstate <- im.ipm$N[,50] # Distant future based on IPM
+#       stbstate <- stbstate/sum(stbstate*fix.param$dx)
+# stb <- data.frame(stbstate)
+# im.ipm <- data.frame(stb) %>% add_column("total_length" = 1:length(stbstate)) %>% 
+#   mutate(total_length = total_length*fix.param$dx) %>% 
+#   mutate(stbstate = if_else(total_length<9,0,stbstate))
+# 
+# #graph
+# p.oxca <-  ggplot()+
+#   geom_density(bk_size %>% filter( species_code%in% "OXCA")%>%
+#                  mutate(year = as_factor(year)),    #data
+#               mapping = aes(x = total_length, fill = year))+   #use densiity plot
+#    geom_line(im.ipm, mapping = aes( x = total_length, y = stbstate), color = "hotpink")+
+#   facet_wrap(~year, ncol = 1, scales = "free_y")+    #separate plots by species
+#   scale_x_continuous(breaks = seq(0,75, 10),
+#                      limits = c(0,75))+  #scale x to be max length
+#   # scale_y_continuous(breaks = seq(0,0.1, 0.08),
+#   #                    limits = c(0,0.1))+ #scale y tick mark
+#   labs(x = "Total Length (mm)",    #edit axis & legend labels
+#        y = "Density",
+#        fill = "Year",
+#        title = element_text("BK oxca"))+
+#   scale_fill_viridis_d()+  #color palatte
+#   theme_classic()+
+#   theme(panel.background = element_rect(fill = "grey96", color = "black"),
+#         plot.title = element_text(hjust = 0.5),
+#         panel.spacing = unit(1, "mm"),
+#         strip.text = element_blank(),
+#         legend.position = "none")+
+#    geom_text(bk_size %>% filter(species_code%in% "SEPU"),mapping = aes(x = 75, y = 0.05, label = year))
+# 
 # (p.sepu + p.pacl + p.pane)/(p.emja + p.chpu + p.oxca) +
 #   plot_layout(guides = "collect") &
 #   xlim(0,60)
-  
+#   
+
+```
+
+
+### TEST size distribution
+```{r}
+# recruit <- songstotal %>% filter(total_length<=8,
+# species_code == "SEPU" ) %>% 
+#   pivot_longer(cols = c('2000':'2022'),
+#               values_to = "count",
+#               names_to = "year") %>% 
+#   summarise(count = sum(count), .by = c(reef_code, species_code, year))
+
+# plot Ivec & immigration sizes from BK
+# test.bk <- songs %>%
+#   filter(transtype_strata %in% c("BOTTOM",NA)) %>%
+#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
+#   drop_na(total_length) %>%
+#   pivot_wider(names_from = year,values_from = tot_count) %>%
+#   drop_na() %>%
+#   filter(reef_code == "BK",
+#          species_code == "SEPU") %>%
+#   pivot_longer(cols = "2000":"2022",
+#                names_to = "year",
+#                values_to = "count") %>%
+#   mutate(year = as.factor(year)) %>%
+#   uncount(count)
+# test.ivec <- data.frame(density = fix.param$Ivec) %>%
+#   mutate(size = c(1:length(density))*fix.param$dx )
+# a <- ggplot()+
+#   geom_line(data = test.ivec, aes(x = size, y = density))+
+# geom_density(test.bk, mapping = aes( x = total_length), color = 'red')+
+# facet_wrap(~year, scales = "free_y")+
+# ggtitle("SEPU BK vs IPM immigration size distribution")+
+# lims(x = c(0,80))
+# b <- ggplot_build(a) # isolate density values of survey data
+# c <- b$data[[2]][3]
+# ggplot(data = data.frame(c))+
+#   geom_line(aes(y = density, x = c(1:nrow(c))))
+
+
+# 
+# Names <- c(paste0("r",c(0:(dim(fishtotal)[2]))), 'Im0','Im1','Im2','Im3','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
+# Means <- c(rep(1,dim(fishtotal)[2]+1), rep(2,4), 0.25, 0.1)
+# SDs <- c(rep(R.sd,dim(fishtotal)[2]+1), rep(Im.sd,4), F.sd,1)
+# # Type <- rep('lognormal', length(Means))
+# Type <- c(rep('lognormal',dim(fishtotal)[2]+1), 'lognormal',
+#           "lognormal", "invgamma") #type for recruitment, immigration, fishing, and process error
+# 
+# Prior <- list(Names,Means,SDs,Type)
+# names(Prior) <- c('Names','Means','SDs','Type')
+# 
+# c(fix.param,Prior)
+# 
+# Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior$Names)))
+# Values[1,] <- Prior$Means
+# colnames(Values) <- Names
+# test <- run.IPM(fix.param = fix.param, cand.param =  Values, fishtotal, burnin = FALSE)
+# sizedist <- data.frame(test$N)
+# # just the IPM
+# test.df <-  fishtotal
+# test.df[,c(1:23)] <- NA
+# test.na <- run.IPM(fix.param = fix.param, cand.param =  Values, test.df, burnin = FALSE)
+# sizedist.na <- data.frame(test.na$N)
+# 
+# y = as.character(c(2000:2022))
+# #### Plot the distributions
+# tfish <- fishtotal %>% add_column(size = c(1:nrow(fishtotal)), .before = '2000') %>%
+#   pivot_longer(cols = c("2000":"2022"),
+#                                     names_to = "year",
+#                                     values_to = "count") %>%
+#   drop_na(count) %>%
+#   uncount(count)
+# 
+# tipm <- sizedist %>% select(c(1:23)) %>%
+#   rename_all(~y) %>%  #rename columns to match year
+#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>%
+#   mutate(size = size*fix.param$dx) %>%
+#   pivot_longer(cols = "2000":"2022",
+#                names_to = "year",
+#                values_to = "N")
+# tipm.na <- sizedist.na %>% select(c(1:23)) %>%
+#   rename_all(~y) %>%  #rename columns to match year
+#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>%
+#   mutate(size = size*fix.param$dx) %>%
+#   pivot_longer(cols = "2000":"2022",
+#                names_to = "year",
+#                values_to = "N")
+# ggplot()+
+#   geom_line(data = tipm, aes(x = size, y = N/5), color = "red")+
+#   geom_line(data = tipm.na,aes(x = size, y = N/5), color = "gold")+
+#   geom_density(data = tfish, aes(x = size)) +
+#   facet_wrap(~year, scales = "free_y") +
+#   scale_y_continuous("survey density", sec.axis = sec_axis(~.*5,
+#                                          "ipm density"))+
+#   theme(axis.title.y.right = element_text( color = "red"),
+#         axis.text.y.right = element_text(color = "red"))+
+#   lims(x = c(0,80))
+
+
 
 ```
