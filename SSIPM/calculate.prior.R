@@ -17,8 +17,7 @@ calculate.prior <- function(Cand,Prior){
   for (i in 1:length(Cand)){
     if (Prior$Type[i] == 'lognormal'){
       
-      Result[i] = log(dnorm(log(Cand[i]) ,mean = Prior$Means[i],sd = Prior$SDs[i]))
-  
+      Result[i] = dlnorm(Cand[i], meanlog = Prior$Means[i], sdlog = Prior$SDs[i], log = TRUE)
                       } # end if lognormal 
     
     

@@ -11,15 +11,14 @@
 get.cand <- function(Init,Prior,index = NA,CV = 1){
 
   if (!is.na(index)){ # for just one of the list of parameters
-    
+
     if (Prior$Type[index] == 'lognormal'){
-      
-      cand = exp( rnorm(n = 1, mean=log(Init)[index], sd = Prior$SDs[index]*CV) )
+      cand = rlnorm(n = 1, meanlog = log(Init[index]), sdlog = Prior$SDs[index]*CV)
       # Note that this generates a random variable on the original scale, not log-transformed
       
       Cand.out = Init
       Cand.out[index] = cand
-      
+
     } # end if lognormal 
     
     if (Prior$Type[index] == "invgamma"){
@@ -41,7 +40,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
       
       if (Prior$Type[k] == 'lognormal'){
         
-        cand[k] = exp( rnorm(n = 1, mean=log(Init[k]), sd = Prior$SDs[k]*CV) )
+        cand[k] = rlnorm(n = 1, meanlog = log(Init[k]), sdlog = Prior$SDs[k]*CV)
         # Note that this generates a random variable on the original scale, not log-transformed
         
       } # end if lognormal (currently the only option)
@@ -58,6 +57,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
     } # end loop over all
     Cand.out = cand
     names(Cand.out) = Prior$Names
+    
   } # end else
 return(Cand.out)
 }

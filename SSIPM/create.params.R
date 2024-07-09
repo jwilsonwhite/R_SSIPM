@@ -5,7 +5,7 @@
 #' @export
 #
 # 
-create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulation = 1){
+create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulation = 1, obsize = NULL){
   
   # Other inputs may be necessary in the future
   if (Sp == 'PACL'){ 
@@ -37,7 +37,10 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     
     # Immigrant size distribution
     Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
-    Ivec = dlnorm(x, meanlog = log(Immean^2 / sqrt(Imsd^2 + Immean^2)), sdlog = sqrt(log(1 + (Imsd^2 /Immean^2))))
+    Ivec = NULL
+    
+    #minimum observable size
+    obsize = 2
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -112,6 +115,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       # Immigrant size distribution
       Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
       
+      #minimum observable fish size
+      obsize <- 9
+      
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
       Q = 20 # now many particles in the filter
@@ -176,14 +182,18 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     
     # Recruit size distribution
     Rvec = dnorm(x,mean=Rmean,sd=Rsd)
+    # Rvec.tmp[length(x[x<9]):meshsize] = 0
+    # Rvec = Rvec.tmp/sum(Rvec.tmp*fix.param$dx)
     
     # Fishing selectivity
     F.sel = pnorm(x,mean = Fmean, sd = Fsd)
     
     # Immigrant size distribution
     Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
-    Ivec = dlnorm(x, meanlog = log(Immean^2 / sqrt(Imsd^2 + Immean^2)),
-                  sdlog = sqrt(log(1 + (Imsd^2 /Immean^2))))
+    Ivec = NULL
+    
+    #minimum observable fish size
+    obsize <- 2
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -221,6 +231,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     #fishing selectivity
     F.sel = NA
     
+    #minimum observable fish size
+    obsize <- 2
+    
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
     Q = 20 # now many particles in the filter
@@ -256,6 +269,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       
       #fishing selectivity
       F.sel = NA
+      
+      #minimum observable fish size
+      obsize <- 2
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -293,6 +309,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       #fishing selectivity
       F.sel = NA
       
+      #minimum observable fish size
+      obsize <- 2
+      
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
       Q = 20 # now many particles in the filter
@@ -306,9 +325,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       }
   
  # Create list for output
-  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,x,dx,burnin,meshsize,Q,MCMClen,MCMCchains)
+  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,obsize, x,dx,burnin,meshsize,Q,MCMClen,MCMCchains)
   names(fix.parm) <- c('Linf','k','M', 'Lfish','Lmat','Lvar',
-                       'Ifish','Rvec','F.sel', 'x','dx','burnin','meshsize','Q','MCMClen','MCMCchains')
+                       'Ifish','Rvec','F.sel', 'obsize', 'x','dx','burnin','meshsize','Q','MCMClen','MCMCchains')
   
  return(fix.parm) 
 }

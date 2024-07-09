@@ -23,10 +23,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     # Run the model for the burnin period
     for (t in 2:params$burnin){
       if(isTRUE(burnin.im) & isTRUE( burnin.r)){ #if both r & im during burnin
-        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$Im0 * params$Ivec # midpoint rule integration
+        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$Im * params$Ivec # midpoint rule integration
       }else
         if(isTRUE(burnin.im) & !isTRUE(burnin.r)){ #if no recruit during burnin
-          N0[,t] <- K %*% N0[,t-1] * params$dx + params$Im0*params$Ivec
+          N0[,t] <- K %*% N0[,t-1] * params$dx + params$Im*params$Ivec
         }else
           if(isTRUE(burnin.r & !isTRUE(burnin.im))){ #if no recruit during burnin
             N0[,t] <- K %*% N0[,t-1] * params$dx + params$r0 * params$Rvec
@@ -46,10 +46,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   if(burnin == TRUE){ # if using a burnin period
     N[,1] = N0[,params$burnin]} else { #initialize the model
       if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
-      N[,1] = params$Rvec * params$r1 + params$Ivec*params$Im1
+      N[,1] = params$Rvec * params$r1 + params$Ivec*params$Im
       }
       if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
-      N[,1] =  params$Im1 * params$Ivec
+      N[,1] =  params$Im * params$Ivec
       }
       if(isTRUE(ipm.r) & !isTRUE(ipm.im)){ # if include only r term
       N[,1] =  params$r1 * params$Rvec
@@ -66,13 +66,14 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   for (t in 2:datayears){
     #advance the model
     Rt = get("params") [[paste0("r",t)]] # extract the recruitment for this year
-    Im = get("params") [[paste0("Im",params$phase[t])]] # extract immigration for this period
+    # Im = get("params") [[paste0("Im",params$phase[t])]] # extract immigration for this period
+    # Im = get("params") [[paste0("Im",t)]] #!!!!!!!!!!!! TESTING individual Im
     
     if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
-      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + Im * params$Ivec
+      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + params$Im * params$Ivec
     }else
       if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
-        N[,t] = K %*% N[,t-1] * params$dx  + Im * params$Ivec
+        N[,t] = K %*% N[,t-1] * params$dx  + params$Im * params$Ivec
       }else
         if(isTRUE(ipm.r) & !isTRUE(ipm.im)){ # if include only r term
           N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec
@@ -102,13 +103,19 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         sdlog[ sdlog == Inf] = max(sdlog[sdlog != Inf]) 
         } #end if infinite sdlog
         Nq[,q] = rlnorm(n=params$meshsize, meanlog=meanlog, sdlog = sdlog) # lognormal process error
-        
-        if (!is.null( params$correction)){ # if have correction for differing survey area
-          Nq[,q] = Nq[,q] * params$correction[1,t] 
-        }
+
         Nq[ Nq[,q] <= 1e-323,  ] = 1e-323 #Prevent the generation of Inf values
-        Lt[q] = sum(dpois( x = Data[[t]], lambda = Nq[,q], log = TRUE)) # poisson likelihood (note - requires integer count data
-      } 
+        
+          Nq.temp = Nq[,q] * params$correction[[1,t]] # correction for differing survey area
+
+        Data.tmp <- Data[[t]] # poisson likelihood (note - requires integer count data)
+        if(!is.null(fix.param$obsize)){ #specify likely observable size
+        Lt[q] = sum(dpois( x = Data.tmp[fix.param$obsize:length(Data.tmp)], lambda = Nq.temp[fix.param$obsize:length(Data.tmp)], log = TRUE)) 
+        } else{
+          Lt[q] = sum(dpois( x = Data.tmp, lambda = Nq.temp, log = TRUE))
+          warning("Minimial observation size not specified, likelihood calculated across all sizes")
+        }
+      }  
 
       # reweight the observations based on likelihood
       # advance the weighted average
@@ -116,11 +123,6 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       Ltt = Lt/mLt
       Ltm = t(matrix(Ltt,nrow=params$Q,ncol=params$meshsize))
       
-      for (q in 1:params$Q){ 
-      if (!is.null( params$correction)){ # if have correction for differing survey area
-        Nq[,q] = Nq[,q] / params$correction[1,t] # fix correction probability density
-      }
-    }
       Ntmp = rowSums(Nq * Ltm) # weighted average
       
       N[,t] = Ntmp

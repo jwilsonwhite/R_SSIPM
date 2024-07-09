@@ -5,13 +5,12 @@
 #' @export
 #
 # 
-fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1/5,1/7,1/10,1/13, 1/20),
+fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,1/20),
                            burnin = TRUE, burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
   
   # Set up MCMC
   M = fix.param$MCMClen
   Chains = fix.param$MCMCchains
-
   
   # pre-allocated results variable
   mc_str = list()
@@ -26,7 +25,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   
   # Get initial candidate parameter vector  
     cand.param <- get.cand(Values[1,],Prior,index=NA,CVs[1])
-
+    
     # initiate Immigration size distribution 
     if(isTRUE(ipm.im)|isTRUE(burnin.im)){ #if immigration is used
       im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
@@ -36,7 +35,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
       stbstate <- im.ipm$N[,50] # Distant future based on IPM
       stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
-      
+
       #replace Ivec with new stable state distribution
       fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
     } # end if immigration is used
@@ -67,8 +66,8 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
       im.data[,c(1:50)] <- NA #not reliant on data
       im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
       stbstate <- im.ipm$N[,50] # Distant future based on IPM
-      stbstate[c(1:fix.param$Ifish)] <- 0
-      
+      stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
+
       #replace Ivec with new stable state distribution
       fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
       }
@@ -81,14 +80,14 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/3,1/4,1
   # Metropolis-Hastings
   p = min(1,exp(Evidence - ChainP[m-1])) # Metropolis step, calculating acceptance probability (note this assumes the candidate generating function is symmetric)
   Accept = runif(1) < p # accept the proposal
-  
+    
   if (Accept) { # proposal accepted
     Values[m,] = cand.param
     ChainP[m] = Evidence
     advance = TRUE
     kk = 1
     
-  } else if (!Accept & kk < length(Prior)) {  
+  } else if (isTRUE(!Accept) & isTRUE( kk < length(CVs))) {  #####!!!!!!!!!!!!!!!! Changed from length of 'Prior' to 'CVs'
     kk = kk + 1 # advance to the next value of the CV
   } else {# else if we are out of delayed rejection steps
     # chain stays put
