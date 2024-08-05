@@ -182,9 +182,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     
     # Recruit size distribution
     Rvec = dnorm(x,mean=Rmean,sd=Rsd)
-    # Rvec.tmp[length(x[x<9]):meshsize] = 0
-    # Rvec = Rvec.tmp/sum(Rvec.tmp*fix.param$dx)
-    
+    # Rvec.tmp[length(x[x<9]):meshsize] = 0 #size cutoff for YOY (recruit)
+    # Rvec = Rvec.tmp/sum(Rvec.tmp*fix.param$dx) #standardize probability density
+    # 
     # Fishing selectivity
     F.sel = pnorm(x,mean = Fmean, sd = Fsd)
     

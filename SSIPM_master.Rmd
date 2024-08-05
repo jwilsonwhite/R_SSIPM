@@ -32,6 +32,8 @@ library(forcats)
 library(lubridate)
 #library for inverse gamma
 library(invgamma)
+# #library for parallel processing
+# library(doParallel)
 
 library(here)
 source(here("SSIPM","calculate.prior.R"))
@@ -49,108 +51,108 @@ source(here("SSIPM","postproc.MCMC.R"))
 
 {
 
-{
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/668/4/60afbd5190f50ba5271dacdf74e549f3" 
-infile1 <- tempfile()
-try(download.file(inUrl1,infile1,method="curl"))
-if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
-
-                   
- dt1 <-read.csv(infile1,header=F 
-          ,skip=1
-            ,sep=","  
-        , col.names=c(
-                    "year",     
-                    "date",     
-                    "reef_code",     
-                    "polygon",     
-                    "phase_built_code",     
-                    "transect_code",     
-                    "visibility",     
-                    "species_code",     
-                    "genus_name",     
-                    "species_name",     
-                    "count",     
-                    "total_length",     
-                    "total_area_sampled"    ), check.names=TRUE)
-               
-unlink(infile1)
-		    
-# Fix any interval or ratio columns mistakenly read in as nominal and nominal columns read as numeric or dates read as strings
-                
-if (class(dt1$date)!="factor") dt1$date<- as.factor(dt1$date)
-if (class(dt1$reef_code)!="factor") dt1$reef_code<- as.factor(dt1$reef_code)
-if (class(dt1$polygon)!="factor") dt1$polygon<- as.factor(dt1$polygon)
-if (class(dt1$phase_built_code)!="factor") dt1$phase_built_code<- as.factor(dt1$phase_built_code)
-if (class(dt1$transect_code)!="factor") dt1$transect_code<- as.factor(dt1$transect_code)
-if (class(dt1$visibility)=="factor") dt1$visibility <-as.numeric(levels(dt1$visibility))[as.integer(dt1$visibility) ]               
-if (class(dt1$visibility)=="character") dt1$visibility <-as.numeric(dt1$visibility)
-if (class(dt1$species_code)!="factor") dt1$species_code<- as.factor(dt1$species_code)
-if (class(dt1$genus_name)!="factor") dt1$genus_name<- as.factor(dt1$genus_name)
-if (class(dt1$species_name)!="factor") dt1$species_name<- as.factor(dt1$species_name)
-if (class(dt1$count)=="factor") dt1$count <-as.numeric(levels(dt1$count))[as.integer(dt1$count) ]               
-if (class(dt1$count)=="character") dt1$count <-as.numeric(dt1$count)
-if (class(dt1$total_length)=="factor") dt1$total_length <-as.numeric(levels(dt1$total_length))[as.integer(dt1$total_length) ]               
-if (class(dt1$total_length)=="character") dt1$total_length <-as.numeric(dt1$total_length)
-if (class(dt1$total_area_sampled)=="factor") dt1$total_area_sampled <-as.numeric(levels(dt1$total_area_sampled))[as.integer(dt1$total_area_sampled) ]               
-if (class(dt1$total_area_sampled)=="character") dt1$total_area_sampled <-as.numeric(dt1$total_area_sampled)
-                
-# Convert Missing Values to NA for non-dates
-                
-dt1$date <- as.factor(ifelse((trimws(as.character(dt1$date))==trimws("-99999")),NA,as.character(dt1$date)))
-dt1$reef_code <- as.factor(ifelse((trimws(as.character(dt1$reef_code))==trimws("-99999")),NA,as.character(dt1$reef_code)))
-dt1$polygon <- as.factor(ifelse((trimws(as.character(dt1$polygon))==trimws("-99999")),NA,as.character(dt1$polygon)))
-dt1$phase_built_code <- as.factor(ifelse((trimws(as.character(dt1$phase_built_code))==trimws("-99999")),NA,as.character(dt1$phase_built_code)))
-dt1$transect_code <- as.factor(ifelse((trimws(as.character(dt1$transect_code))==trimws("-99999")),NA,as.character(dt1$transect_code)))
-dt1$visibility <- ifelse((trimws(as.character(dt1$visibility))==trimws("-99999")),NA,dt1$visibility)               
-suppressWarnings(dt1$visibility <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$visibility))==as.character(as.numeric("-99999"))),NA,dt1$visibility))
-dt1$species_code <- as.factor(ifelse((trimws(as.character(dt1$species_code))==trimws("-99999")),NA,as.character(dt1$species_code)))
-dt1$genus_name <- as.factor(ifelse((trimws(as.character(dt1$genus_name))==trimws("-99999")),NA,as.character(dt1$genus_name)))
-dt1$species_name <- as.factor(ifelse((trimws(as.character(dt1$species_name))==trimws("-99999")),NA,as.character(dt1$species_name)))
-dt1$count <- ifelse((trimws(as.character(dt1$count))==trimws("-99999")),NA,dt1$count)               
-suppressWarnings(dt1$count <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$count))==as.character(as.numeric("-99999"))),NA,dt1$count))
-dt1$total_length <- ifelse((trimws(as.character(dt1$total_length))==trimws("-99999")),NA,dt1$total_length)               
-suppressWarnings(dt1$total_length <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$total_length))==as.character(as.numeric("-99999"))),NA,dt1$total_length))
-dt1$total_area_sampled <- ifelse((trimws(as.character(dt1$total_area_sampled))==trimws("-99999")),NA,dt1$total_area_sampled)               
-suppressWarnings(dt1$total_area_sampled <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$total_area_sampled))==as.character(as.numeric("-99999"))),NA,dt1$total_area_sampled))
-
-
-# Here is the structure of the input data frame:
-str(dt1)                            
-attach(dt1)                            
-# The analyses below are basic descriptions of the variables. After testing, they should be replaced.                 
-
-summary(year)
-summary(date)
-summary(reef_code)
-summary(polygon)
-summary(phase_built_code)
-summary(transect_code)
-summary(visibility)
-summary(species_code)
-summary(genus_name)
-summary(species_name)
-summary(count)
-summary(total_length)
-summary(total_area_sampled) 
-                # Get more details on character variables
-                 
-summary(as.factor(dt1$date)) 
-summary(as.factor(dt1$reef_code)) 
-summary(as.factor(dt1$polygon)) 
-summary(as.factor(dt1$phase_built_code)) 
-summary(as.factor(dt1$transect_code)) 
-summary(as.factor(dt1$species_code)) 
-summary(as.factor(dt1$genus_name)) 
-summary(as.factor(dt1$species_name))
-detach(dt1)               
-        
-
-  phase2_3 <- dt1 %>% 
-    filter(species_code %in% c("PACL", "OXCA", "PANE",
-                               "CHPU", "EMJA", "SEPU")) 
-    # filter(case_when(year == 2009 ~ total_area_sampled == 100, T~ total_area_sampled == 150))
-} #phase 2 & 3 data from public repository
+# {
+# inUrl1  <- "https://pasta.lternet.edu/package/data/eml/edi/668/4/60afbd5190f50ba5271dacdf74e549f3" 
+# infile1 <- tempfile()
+# try(download.file(inUrl1,infile1,method="curl"))
+# if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+# 
+#                    
+#  dt1 <-read.csv(infile1,header=F 
+#           ,skip=1
+#             ,sep=","  
+#         , col.names=c(
+#                     "year",     
+#                     "date",     
+#                     "reef_code",     
+#                     "polygon",     
+#                     "phase_built_code",     
+#                     "transect_code",     
+#                     "visibility",     
+#                     "species_code",     
+#                     "genus_name",     
+#                     "species_name",     
+#                     "count",     
+#                     "total_length",     
+#                     "total_area_sampled"    ), check.names=TRUE)
+#                
+# unlink(infile1)
+# 		    
+# # Fix any interval or ratio columns mistakenly read in as nominal and nominal columns read as numeric or dates read as strings
+#                 
+# if (class(dt1$date)!="factor") dt1$date<- as.factor(dt1$date)
+# if (class(dt1$reef_code)!="factor") dt1$reef_code<- as.factor(dt1$reef_code)
+# if (class(dt1$polygon)!="factor") dt1$polygon<- as.factor(dt1$polygon)
+# if (class(dt1$phase_built_code)!="factor") dt1$phase_built_code<- as.factor(dt1$phase_built_code)
+# if (class(dt1$transect_code)!="factor") dt1$transect_code<- as.factor(dt1$transect_code)
+# if (class(dt1$visibility)=="factor") dt1$visibility <-as.numeric(levels(dt1$visibility))[as.integer(dt1$visibility) ]               
+# if (class(dt1$visibility)=="character") dt1$visibility <-as.numeric(dt1$visibility)
+# if (class(dt1$species_code)!="factor") dt1$species_code<- as.factor(dt1$species_code)
+# if (class(dt1$genus_name)!="factor") dt1$genus_name<- as.factor(dt1$genus_name)
+# if (class(dt1$species_name)!="factor") dt1$species_name<- as.factor(dt1$species_name)
+# if (class(dt1$count)=="factor") dt1$count <-as.numeric(levels(dt1$count))[as.integer(dt1$count) ]               
+# if (class(dt1$count)=="character") dt1$count <-as.numeric(dt1$count)
+# if (class(dt1$total_length)=="factor") dt1$total_length <-as.numeric(levels(dt1$total_length))[as.integer(dt1$total_length) ]               
+# if (class(dt1$total_length)=="character") dt1$total_length <-as.numeric(dt1$total_length)
+# if (class(dt1$total_area_sampled)=="factor") dt1$total_area_sampled <-as.numeric(levels(dt1$total_area_sampled))[as.integer(dt1$total_area_sampled) ]               
+# if (class(dt1$total_area_sampled)=="character") dt1$total_area_sampled <-as.numeric(dt1$total_area_sampled)
+#                 
+# # Convert Missing Values to NA for non-dates
+#                 
+# dt1$date <- as.factor(ifelse((trimws(as.character(dt1$date))==trimws("-99999")),NA,as.character(dt1$date)))
+# dt1$reef_code <- as.factor(ifelse((trimws(as.character(dt1$reef_code))==trimws("-99999")),NA,as.character(dt1$reef_code)))
+# dt1$polygon <- as.factor(ifelse((trimws(as.character(dt1$polygon))==trimws("-99999")),NA,as.character(dt1$polygon)))
+# dt1$phase_built_code <- as.factor(ifelse((trimws(as.character(dt1$phase_built_code))==trimws("-99999")),NA,as.character(dt1$phase_built_code)))
+# dt1$transect_code <- as.factor(ifelse((trimws(as.character(dt1$transect_code))==trimws("-99999")),NA,as.character(dt1$transect_code)))
+# dt1$visibility <- ifelse((trimws(as.character(dt1$visibility))==trimws("-99999")),NA,dt1$visibility)               
+# suppressWarnings(dt1$visibility <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$visibility))==as.character(as.numeric("-99999"))),NA,dt1$visibility))
+# dt1$species_code <- as.factor(ifelse((trimws(as.character(dt1$species_code))==trimws("-99999")),NA,as.character(dt1$species_code)))
+# dt1$genus_name <- as.factor(ifelse((trimws(as.character(dt1$genus_name))==trimws("-99999")),NA,as.character(dt1$genus_name)))
+# dt1$species_name <- as.factor(ifelse((trimws(as.character(dt1$species_name))==trimws("-99999")),NA,as.character(dt1$species_name)))
+# dt1$count <- ifelse((trimws(as.character(dt1$count))==trimws("-99999")),NA,dt1$count)               
+# suppressWarnings(dt1$count <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$count))==as.character(as.numeric("-99999"))),NA,dt1$count))
+# dt1$total_length <- ifelse((trimws(as.character(dt1$total_length))==trimws("-99999")),NA,dt1$total_length)               
+# suppressWarnings(dt1$total_length <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$total_length))==as.character(as.numeric("-99999"))),NA,dt1$total_length))
+# dt1$total_area_sampled <- ifelse((trimws(as.character(dt1$total_area_sampled))==trimws("-99999")),NA,dt1$total_area_sampled)               
+# suppressWarnings(dt1$total_area_sampled <- ifelse(!is.na(as.numeric("-99999")) & (trimws(as.character(dt1$total_area_sampled))==as.character(as.numeric("-99999"))),NA,dt1$total_area_sampled))
+# 
+# 
+# # Here is the structure of the input data frame:
+# str(dt1)                            
+# attach(dt1)                            
+# # The analyses below are basic descriptions of the variables. After testing, they should be replaced.                 
+# 
+# summary(year)
+# summary(date)
+# summary(reef_code)
+# summary(polygon)
+# summary(phase_built_code)
+# summary(transect_code)
+# summary(visibility)
+# summary(species_code)
+# summary(genus_name)
+# summary(species_name)
+# summary(count)
+# summary(total_length)
+# summary(total_area_sampled) 
+#                 # Get more details on character variables
+#                  
+# summary(as.factor(dt1$date)) 
+# summary(as.factor(dt1$reef_code)) 
+# summary(as.factor(dt1$polygon)) 
+# summary(as.factor(dt1$phase_built_code)) 
+# summary(as.factor(dt1$transect_code)) 
+# summary(as.factor(dt1$species_code)) 
+# summary(as.factor(dt1$genus_name)) 
+# summary(as.factor(dt1$species_name))
+# detach(dt1)               
+#         
+# 
+#   phase2_3 <- dt1 %>% 
+#     filter(species_code %in% c("PACL", "OXCA", "PANE",
+#                                "CHPU", "EMJA", "SEPU")) %>% 
+#     filter(case_when(year == 2009 ~ total_area_sampled == 100, T~ total_area_sampled %in% c(150,123)))
+# } #phase 2 & 3 data from public repository
 {
   
   condpath <- here("data","songs") 
@@ -167,15 +169,17 @@ detach(dt1)
   } #add phase 1 data from data folder
 
   years <- data.frame(year = c(2000:2022))
-  songs <- bind_rows(songs_1,phase2_3) %>% 
-    select(3:18) 
+  songs <- songs_1 %>% select(3:18) ########!!!!!!!!!!! Temp. using Phase1 data only
+  # songs <- bind_rows(songs_1,phase2_3) %>% 
+  #   select(3:18) 
   songs <- left_join(years, songs)
 }
 
 #get total count - values from Phase 1 reefs ONLY, Bottom transect
 songstotal <- songs %>% 
   filter(phase_built_code == "E", 
-         transtype_strata %in% c("BOTTOM",NA)) %>% 
+         transtype_strata %in% c("BOTTOM",NA),
+         year %in% c(2000:2006))%>%
   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
   drop_na(total_length) %>% 
   pivot_wider(names_from = year,values_from = tot_count) %>% 
@@ -193,9 +197,9 @@ fishtotal <- fishtotal %>% full_join(.,total_length) %>%
   filter(total_length %in% c(1:max(fishtotal$total_length))) %>% 
   arrange(total_length) %>%  # re-order dataframe by numerical value
   select(4:length(fishtotal)) %>% # choose only count of fish
-  replace(is.na(.),0) %>% #add NA
-  add_column("2008" = NA, "2007" = NA) %>%  # add years not included to be continuous
-  relocate(c("2007","2008"), .after = "2006")
+  replace(is.na(.),0) #add NA
+  # add_column("2008" = NA, "2007" = NA) %>%  # add years not included to be continuous
+  # relocate(c("2007","2008"), .after = "2006")
   # select(c(1:9))
 
 ```
@@ -217,19 +221,20 @@ transect <- songs %>%
             .by = c(year,reef_code)) %>% 
   select(c(year,tot_area)) %>% 
   pivot_wider(names_from = year,
-              values_from = tot_area) %>%   
-  add_column("2008" = NA, "2007" = NA) %>% 
-  relocate(c("2007","2008"), .after = "2006") 
+              values_from = tot_area) %>% 
+  add_column("2008" = NA, "2007" = NA) %>%
+  relocate(c("2007","2008"), .after = "2006")
   # select(c(1:9))
 transect <- as.matrix(transect)
 ```
 
 ```{r}
 #Define the phase of AR construction and year (to eventually identify years of AR expansion & fishing regulation)
-years <- years
+years <- colnames(fishtotal)
 datyr <- c(1:dim(fishtotal)[2])
 # phase <- c(rep("1",9),rep("2",11),rep("3",dim(fishtotal)[2]-20))
-phase <- c("1", rep("2",dim(fishtotal)[2]-1))
+phase <- c(1,rep("2",6), rep("3",dim(fishtotal)[2]-7))
+# phase <- c(c(1:dim(fishtotal)[2]), rep("2",dim(fishtotal)[2]-7))
 # phase <- c(rep("1",9))
 ar.phase <- cbind(years, datyr,phase)
 
@@ -246,6 +251,7 @@ MCMCchains = 3 # how many chains
 fix.param <- create.params(Sp = Sp, meshsize =  meshsize, MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
 fix.param$correction <- transect #add survey correction to fix.params
 fix.param$phase <- phase
+fix.param$error <- 0.15
 ```
 
 ```{r}
@@ -270,34 +276,35 @@ fix.param$phase <- phase
 # tot.bk <- data.frame( length = rownames(im.bk), count = im.bk$sum) %>%
 #   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
 # 
-# bk.den <- density(tot.bk$length)
+# bk.den <- density(tot.bk$length) #density at the last year
 # af <- approxfun(bk.den$x,bk.den$y) #linear approximation of the values from density plot values
 # temp <- c(fix.param$x) #length interval
 # a <- af(temp) # approximate density based on
 # a[ is.na(a)  ] = 1e-323
-# a[c(1:fix.param$Ifish)] <- 0
-# fix.param$Ivec <- a/sum(a*fix.param$dx)
+# a[c(1:fix.param$Ifish)] <- 0 #assume yoy sized fish are not migrants 
+# fix.param$Ivec <- a/sum(a*fix.param$dx) #add to fix.param
 ```
 
 ```{r}
 # Set the priors for the parameters to be estimated...this list will need to be adjusted depending on the exact nature of the fitting we are doing
 # for both recruitment & fishing is best done as lognormal.
 
-R.mean <- log(0.05) # recruitment
-R.sd <- 0.2
-Im.mean <- log(0.25) #immigration
-Im.sd <- 0.2
+R.mean <- log(0.0025) # recruitment
+R.sd <- 0.5
+Im.mean <- log(0.02) #immigration
+Im.sd <- 0.5
 F.mean <- log(0.25) # fishing
 F.sd <- 0.01
-error.mean = 2 # process error shape
-error.sd = 1 # process error scale
+error.mean = 1.5 # process error shape
+error.sd = 0.025 # process error scale
 
-Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), "Im1", "Im2",'F','error')
-# Means <- c(rep(R.mean,dim(fishtotal)[2]+1), rep(Im.mean,4) ,F.mean,error.mean) #can't have negative fishing or recruitment
-Means <- c(rep(R.mean,dim(fishtotal)[2]), 1,Im.mean, F.mean, error.mean)
-SDs <- c(rep(R.sd,dim(fishtotal)[2]), Im.sd,Im.sd, F.sd,error.sd)
-Type <- c(rep('lognormal',dim(fishtotal)[2]), 'lognormal','lognormal',
-          "lognormal", "invgamma") #type for recruitment, immigration, fishing, and process error
+
+# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), "Im", 'F')
+Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), paste0("Im",c(1:2)),'F')
+Means <- c(rep(R.mean,dim(fishtotal)[2]), rep(Im.mean,2), F.mean)
+SDs <- c(rep(R.sd,dim(fishtotal)[2]), rep(Im.sd,2), F.sd)
+Type <- c( c(rep("lognormal",dim(fishtotal)[2]),rep("lognormal",2),
+          "lognormal")) #type for recruitment, immigration, fishing, and process error
 
 Prior <- list(Names,Means,SDs,Type)
 names(Prior) <- c('Names','Means','SDs','Type')
@@ -312,14 +319,14 @@ Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData', burnin = 
 ```
 
 ```{r}
-#post-processing the chains (work in progress)
+# #post-processing the chains (work in progress)
 Post.fit <- postproc.MCMC(Fit) # combine chains & do diagnostic checks
-
+ 
 ```
-
+ 
 ```{r}
 # Examine the prior
-hist(Post.fit$Values[,"Im"] )
+hist(Post.fit$Values[,"Im1"])
 
 #Estimated MCMC vaues by chain
 ggplot()+
@@ -330,128 +337,59 @@ ggplot()+
 
 plot(Post.fit$PosteriorProb)
 
-#recruit values
+# #recruit values
 # post.recrutis <- data.frame(Post.fit$Values) %>%
 #   mutate(iteration = c(1:150003)) %>%
-#   # select(Im) %>%
-#   # mutate(iteration = c(1:10000)) %>%
-# # filter(iteration == 1:10000) %>%
-#   pivot_longer(cols = r0:r23,
-#                names_to = "year",
-#                values_to = "recruit") %>%
-#   separate(col = year, sep = "r", into = c("recruit_label","year")) %>%
-#   mutate(year = as.character(year),
-#          iteration = as.factor(iteration),
-#          year = as.numeric(year))
-#   ggplot(data = post.recrutis)+
-#   geom_line(aes(y = recruit, x = iteration, group = year))+
-#     facet_wrap(~year, scale = "free_y")
+#   select(Im1, iteration) %>%
+# #   # mutate(iteration = c(1:10000)) %>%
+# # # filter(iteration == 1:10000) %>%
+# #   pivot_longer(cols = r0:r23,
+# #                names_to = "year",
+# #                values_to = "recruit") %>%
+# #   separate(col = year, sep = "r", into = c("recruit_label","year")) %>%
+# #   mutate(year = as.character(year),
+# #          iteration = as.factor(iteration),
+# #          year = as.numeric(year))
+#   ggplot()+
+#   geom_line(aes(y = Im1, x = iteration))
 
 
 ```
 
 ```{r}
-#Posterior predictive checks (still in progress)
+# #Posterior predictive checks (still in progress)
 ```
 
 
 ## Plots
 #### TEST size distribution
 ```{r}
-# recruit <- songstotal %>%
-#   filter(species_code == "SEPU", total_length<9) %>%
-#   # mutate("length_class" = case_when(
-#   #   total_length<9 ~ "yoy",
-#   #                             total_length>=9&total_length<37~ "juvenile",
-#   #                             total_length>=37~"adult")) %>%
-#   # mutate(length_class = factor(.$length_class, levels = c("yoy","juvenile","adult"))) %>%
-#   pivot_longer(cols = c('2000':'2022'),
-#               values_to = "count",
-#               names_to = "year") %>%
-#   summarise(count = sum(count), .by = c(reef_code, species_code, year)) %>%
-#   left_join(., data.frame(transect) %>% pivot_longer(cols = c(1:23),names_to = "year", values_to = "transect_area") %>% mutate(year = as.character(c(2000:2022)))) %>%
-#   mutate(average = count/transect_area) %>%
-  # summarise(average = mean(average))
-  # mutate(probden = average * case_when( length_class == "juvenile" ~ sum(fix.param$x>=9&fix.param$x<37),
-  #                                       length_class == "adult" ~ sum(fix.param$x>=37),
-  #                                       TRUE~9)) %>% 
-  # pivot_wider(names_from = )
-  # 
-  # ggplot()+
-  # geom_col(aes(x = year, y= average))+
-  # facet_wrap(~length_class)+
-  # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  
-
-# Sp <- 'SEPU'
-# meshsize = 100
-# MCMClen = 100 # how long are MCMC chains
-# MCMCchains = 3 # how many chains
+# # recruit <- songstotal %>%
+# #   filter(species_code == "SEPU") %>%
+# #   mutate("length_class" = case_when(
+# #     total_length<9 ~ "yoy",
+# #                               total_length>=9&total_length<37~ "juvenile",
+# #                               total_length>=37~"adult")) %>%
+# #   mutate(length_class = factor(.$length_class, levels = c("yoy","juvenile","adult"))) %>%
+# #   pivot_longer(cols = c('2000':'2022'),
+# #               values_to = "count",
+# #               names_to = "year") %>%
+# #   summarise(count = sum(count), .by = c(reef_code, species_code, year,length_class)) %>%
+# #   left_join(., data.frame(transect) %>% pivot_longer(cols = c(1:23),names_to = "year", values_to = "transect_area") %>% mutate(year = as.character(c(2000:2022)))) %>%
+# #   mutate(average = count/transect_area) %>%
+# # mutate(probden = average * case_when( length_class == "juvenile" ~ sum(fix.param$x>=9&fix.param$x<37),
+# #                                       length_class == "adult" ~ sum(fix.param$x>=37),
+# #                                       TRUE~9)) 
+# # ggplot(data = recruit, aes(x = length_class, y = average))+
+# #   geom_col()+
+# #   facet_wrap(~year)
 # 
-# # we may be missing a few necessary parameters in create.params()...add in as needed
-# fix.param <- create.params(Sp = Sp, meshsize =  meshsize, MCMClen = MCMClen,MCMCchains = MCMCchains) # fix.param will be handy to pass around arguments to other functions
-# fix.param$correction <- transect #add survey correction to fix.params
-# fix.param$phase <- phase
 # 
-# Names <- c(paste0("r",c(0:(dim(fishtotal)[2]))), 'Im','F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
-# Means <- c(rep(1,dim(fishtotal)[2]+1), 0, 0.25, 0.1)
-# SDs <- c(rep(R.sd,dim(fishtotal)[2]+1), Im.sd, F.sd,1)
-# # Type <- rep('lognormal', length(Means))
-# Type <- c(rep('lognormal',dim(fishtotal)[2]+1), 'lognormal',
-#           "lognormal", "invgamma") #type for recruitment, immigration, fishing, and process error
-# Prior <- list(Names,Means,SDs,Type)
-# names(Prior) <- c('Names','Means','SDs','Type')
+# #####------------- Immigration size distribution
 # 
-    # Values <- matrix(NA,nrow=M,ncol =length(Prior$Names))
-    # Values[1,] <- Prior$Means
-    # colnames(Values) <- Names
-    # cand.param <- Values[1,]
-    #  im.cand.param <-  c( rep(Prior$Means[2],51), 0, cand.param["F"],0) #use updated cand.param F value
-    #   names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
-    #   im.data <- fishtotal
-    #   im.data[,c(1:50)] <- NA #not reliant on data
-    #   im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
-    #   stbstate <- im.ipm$N[,50] # Distant future based on IPM
-    #   stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
-    # 
-    #   #replace Ivec with new stable state distribution
-    #   fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
-# #
-# # plot Ivec & immigration sizes from BK
-# test <- songs %>%
-#   filter(transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year,values_from = tot_count) %>%
-#   drop_na() %>%
-#   filter(species_code == "SEPU") %>%
-#   pivot_longer(cols = "2000":"2022",
-#                names_to = "year",
-#                values_to = "count") %>%
-#   mutate(year = as.factor(year)) %>%
-#   uncount(count)
-# test.ivec <- data.frame(density = fix.param$Ivec) %>%
-#   mutate(size = c(1:length(density))*fix.param$dx )
+# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),"Im1", "Im2", 'F')
 # 
-# a <-  ggplot()+
-#   # geom_line(data = test.ivec, aes(x = size, y = density))+
-# # geom_histogram(test.bk, mapping = aes( x = total_length), color = 'red')+
-#   geom_density(test, mapping = aes( x = total_length, group = reef_code, color = reef_code))+
-# # facet_wrap(~year, scales = "free_y")+
-# ggtitle("SEPU BK vs IPM immigration size distribution")+
-# lims(x = c(0,80))
-# 
-# # test.1 <- test %>% filter(reef_code == "SMK")
-# # plot(density(test.1$total_length, bw = fix.param$dx))
-# # 
-# b <- ggplot_build(a) # isolate density values of survey data
-# c <- b$data[[2]][3]
-# # ggplot(data = data.frame(c))+
-# #   geom_line(aes(y = density, x = c(1:nrow(c))))
-
-##### Immigration size distribution
-# 
-# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), paste0("Im",c(1:(dim(fishtotal)[2]))),'F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
+# # Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), paste0("Im",c(1:2)),'F','error') # for now assume one burn-in recruitment rate, three years of observations, and one harvest rate, and one process error term
 # # 0.1,0.05,0.05,0.05,0.02,0.02,0.05,0.05,0.02,0.02,
 # # 0.05,0.02,0.1,0.3,0.1,0.3,0.05,0.05,0.05,0.05,
 # # 0.2,0,0.02,
@@ -459,27 +397,22 @@ plot(Post.fit$PosteriorProb)
 # # 1, 0.3,0.3,0.3, 0.3, 0.1,0.1,0.1,0.1,0.1,
 # # 0.1,0.5,0.1,0.1,0.1,0.2,0.1,0.3,0.3,0.3,
 # # 0.3,0.3,0.2,
-# 
+# #
 # # 0.0008629397
 # # 0.01920452
 # 
 # Means <- c(
-#   0.0009,0.02,0.02,0.0009,0.02,0.0009,0.0009,0.0009,0.0009,0.0009,
-# 0.0009,0.05,0.02,0.2,0.2,0.2,0.02,0.02,0.02,0.0009,
-# 0.1,0.0009,0.05,
+# # 0.0009,0.0009,0.0009,0.0009,0.005,0.0009,0.0009,0.02,0.0009,0.0009,
+# # 0.0009,0.0009,0.0009,0.009,0.009,0.02,0.001,0.0009,0.0009,0.0009,
+# # 0.001,0.001,0.0009,
+# rep(0.0025,dim(fishtotal)[2]),
+# 0.05,259,
+# # rep(0.021,dim(fishtotal)[2]),
 # 
-# 
-# 1,rep(0.21,dim(fishtotal)[2]-1),
-# # 0.1,0.3,0.3, 0.3, 0.1,0.1,0.1,0.1,0.5,
-# # 0.1,0.5,0.1,0.1,0.1,0.2,0.3,0.3,0.3,0.1,
-# # 0.3,0.3,0.2,
-# 
-# 
-# exp(F.mean), 0.1)
-# SDs <- c(rep(R.sd,dim(fishtotal)[2]), rep(Im.sd,dim(fishtotal)[2]), F.sd,1)
-# # Type <- rep('lognormal', length(Means))
-# Type <- c(rep('lognormal',dim(fishtotal)[2]), rep('lognormal',dim(fishtotal)[2]),
-#           "lognormal", "invgamma") #type for recruitment, immigration, fishing, and process error
+# exp(F.mean))
+# SDs <- c(rep(R.sd,dim(fishtotal)[2]), Im.sd,Im.sd, F.sd,1)
+# Type <- c(rep('lognormal',dim(fishtotal)[2]), 'lognormal','lognormal',
+#           "lognormal") #type for recruitment, immigration, fishing, and process error
 # 
 # Prior <- list(Names,Means,SDs,Type)
 # names(Prior) <- c('Names','Means','SDs','Type')
@@ -529,7 +462,7 @@ plot(Post.fit$PosteriorProb)
 # # temp <- c(fix.param$x) #length interval
 # # a <- af(temp) # approximate density based on
 # # a[ is.na(a)  ] = 1e-323
-# # a[c(1:fix.param$Ifish)] <- 0
+# # a[c(1:fix.param$Ifish)] <- 0 #recruits are not moving
 # # fix.param$Ivec <- a/sum(a*fix.param$dx)
 # # plot(cbind(temp,a))
 # ######-------Immigration bk culmative size dist--------########
@@ -550,10 +483,10 @@ plot(Post.fit$PosteriorProb)
 # #   replace(is.na(.),0) %>% #add NA
 # #     # select("2000") %>%
 # #   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
-# # 
+# #
 # # tot.bk <- data.frame( length = rownames(im.bk), count = im.bk$sum) %>%
 # #   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
-# # 
+# #
 # # bk.den <- density(tot.bk$length)
 # # af <- approxfun(bk.den$x,bk.den$y) #linear approximation of the values from density plot values
 # # temp <- c(fix.param$x) #length interval
@@ -576,54 +509,58 @@ plot(Post.fit$PosteriorProb)
 # sizedist <- data.frame(test$N)
 # # just the IPM
 # test.df <-  fishtotal
-# test.df[,c(1:23)] <- NA
+# test.df[,c(1:7)] <- NA
 # test.na <- run.IPM(fix.param = fix.param, cand.param =  Values, test.df, burnin = FALSE)
 # sizedist.na <- data.frame(test.na$N)
 # 
-# # 
-# # 
-# # y = as.character(c(2000:2022))
+# #
+# #
+# y = as.character(c(2000:2006))
+# t.sect <- data.frame( t(transect)) %>%
+#   mutate(year = as.character(rownames(.)))
 # # #### Plot the distributions
-# # tfish <- fishtotal %>% add_column(size = c(1:nrow(fishtotal)), .before = '2000') %>%
-# #   pivot_longer(cols = c("2000":"2022"),
-# #                                     names_to = "year",
-# #                                     values_to = "count") %>%
-# #   drop_na(count) %>%
-# #   uncount(count)
+# tfish <- fishtotal %>% add_column(size = c(1:nrow(fishtotal)), .before = '2000') %>%
+#   pivot_longer(cols = c("2000":"2006"),
+#                                     names_to = "year",
+#                                     values_to = "count") %>%
+#   left_join(., t.sect) %>%
+#   mutate(density = count/t.transect.)
 # 
-# # tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
+# tipm <- sizedist %>% select(c(1:7)) %>% #IPM with data fitting
+#   rename_all(~y) %>%  #rename columns to match year
+#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
+#   mutate(size = size*fix.param$dx) %>%
+#   pivot_longer(cols = "2000":"2006",
+#                names_to = "year",
+#                values_to = "N") %>%
+#   group_by(year) %>%
+#   mutate( tot_N = sum(N),
+#     standardize = sum(N*fix.param$dx),
+#     density= N/sum(N*fix.param$dx))
+# 
+# 
+# # tipm.na <- sizedist.na %>% select(c(1:23)) %>% # IPM without data fitting
 # #   rename_all(~y) %>%  #rename columns to match year
-# #   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
+# #   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>%
 # #   mutate(size = size*fix.param$dx) %>%
 # #   pivot_longer(cols = "2000":"2022",
 # #                names_to = "year",
-# #                values_to = "N") %>%
-# #   group_by(year) %>%
-# #   mutate( tot_N = sum(N),
-# #     standardize = sum(N*fix.param$dx),
-# #     density= N/sum(N*fix.param$dx))
-# 
-# 
-# tipm.na <- sizedist.na %>% select(c(1:23)) %>% # IPM without data fitting
-#   rename_all(~y) %>%  #rename columns to match year
-#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>%
-#   mutate(size = size*fix.param$dx) %>%
-#   pivot_longer(cols = "2000":"2022",
-#                names_to = "year",
-#                values_to = "N")
-# tipm.na %>% summarise(sum = sum(N)*fix.param$dx, .by = year)
-# 
-# test.ivec <- data.frame(density = fix.param$Ivec) %>%
-#   mutate(size = c(1:length(density))*fix.param$dx )
+# #                values_to = "N")
+# # tipm.na %>% summarise(sum = sum(N)*fix.param$dx, .by = year)
+# #
+# # test.ivec <- data.frame(density = fix.param$Ivec) %>%
+# #   mutate(size = c(1:length(density))*fix.param$dx )
 # 
 # ggplot()+
-#   # geom_line(data = tipm, aes(x = size, y = N), color = "red")+
+#   geom_line(data = tipm, aes(x = size, y = N), color = "blue")+
 #   # geom_line(test.ivec, mapping = aes(x = size, y = density),color = "blue")+ #immigration size distribution
 #   # geom_histogram(data = tfish, aes(x = size))+
-#   geom_density(data = tfish, aes(x = size)) +
-#     geom_line(data = tipm.na, aes(x = size, y = N), color = "red")+
-#   facet_wrap(~year) +
+#   geom_line(data = tfish, aes(x = size, y = density)) +
+#     # geom_line(data = tipm.na, aes(x = size, y = N), color = "red")+
+#   # geom_density(test, mapping = aes( x = total_length, group = reef_code), color = "purple")+
+#   facet_wrap(~year, scales = "free_y") +
 #   scale_y_continuous("survey density") +
+#   # geom_vline(xintercept = 9, linetype = "dashed")+
 #                      # sec.axis = sec_axis(~.,"ipm density"))+
 #   theme_bw()+
 #   # theme(axis.title.y.right = element_text( color = "red"),

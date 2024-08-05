@@ -1,5 +1,6 @@
 #' Fit SSIPM to data using delayed rejection MCMC
 #'
+#'
 #' @return List
 #'
 #' @export
@@ -16,12 +17,16 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,
   mc_str = list()
   
   for (c in 1:Chains){ # if possible it would be nice to parallelize this step.
-    
+
     ChainP <- rep(0,length.out=M) # this holds the posterior proportional evidence (LL + Prior)
     Values <- matrix(NA,nrow=M,ncol =length(Prior$Names)) 
     
+    ###################!!!!!!!!!!!! TESTING
+    prob.test <- data.frame(matrix(NA, nrow = M+1000, ncol = 7)) 
+    colnames(prob.test) <- c("cand.param$Im","Prior","loglikelihood","evidence","metropolis","accep.prob", "Accept")
+    
     Values[1,] <- exp(Prior$Means)
-    colnames(Values) <- Names
+    colnames(Values) <- Prior$Names
   
   # Get initial candidate parameter vector  
     cand.param <- get.cand(Values[1,],Prior,index=NA,CVs[1])
@@ -76,18 +81,30 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,
   Fit <- run.IPM(fix.param,cand.param,Data, burnin = burnin, burnin.im = burnin.im, burnin.r = burnin.r, ipm.im = ipm.im, ipm.r = ipm.r) # returns list Fit with log-likelihood and fit to data
   Prior.tmp <- calculate.prior(cand.param,Prior) # calculate the prior
   Evidence <- Fit$LL + Prior.tmp
-  
+
   # Metropolis-Hastings
   p = min(1,exp(Evidence - ChainP[m-1])) # Metropolis step, calculating acceptance probability (note this assumes the candidate generating function is symmetric)
   Accept = runif(1) < p # accept the proposal
-    
+
+  ######################!!!!!!!!!!!! TESTING
+  #Ims
+  prob.test[m,1] <- cand.param[8]######################!!!!!!!!!!!! TESTING Im1
+  prob.test[m,2] <- Prior.tmp######################!!!!!!!!!!!! TESTING
+  prob.test[m,3] <- Fit$LL######################!!!!!!!!!!!! TESTING
+  prob.test[m,4] <- Evidence######################!!!!!!!!!!!! TESTING
+  prob.test[m,5] <- exp(Evidence - ChainP[m-1])######################!!!!!!!!!!!! TESTING
+  prob.test[m,6] <- p######################!!!!!!!!!!!! TESTING
+  prob.test[m,7] <- Accept######################!!!!!!!!!!!! TESTING
+  prob.test[m,8] <- ChainP[m-1]######################!!!!!!!!!!!! TESTING
+  
+  
   if (Accept) { # proposal accepted
     Values[m,] = cand.param
     ChainP[m] = Evidence
     advance = TRUE
     kk = 1
     
-  } else if (isTRUE(!Accept) & isTRUE( kk < length(CVs))) {  #####!!!!!!!!!!!!!!!! Changed from length of 'Prior' to 'CVs'
+  } else if (isTRUE(!Accept) & isTRUE( kk < length(CVs))) {  
     kk = kk + 1 # advance to the next value of the CV
   } else {# else if we are out of delayed rejection steps
     # chain stays put
@@ -108,6 +125,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,
     
     mc_str$ChainP[[c]] <- ChainP
     mc_str$Values[[c]] <- Values
+    mc_str$prob.test[[c]] <- prob.test ###########!!!!!!!!!!! TESTING
 
   } # end loop over chains
   save(mc_str,file=savename)

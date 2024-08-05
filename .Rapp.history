@@ -1,0 +1,11 @@
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.rds")
+view(mc_str.rds)
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.rds")
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RDS")
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
+R CMD BATCH your_script.R mc_str.RData
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
+a <- load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
+a
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str_ar_P_A.RData")
