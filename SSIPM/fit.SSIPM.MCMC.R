@@ -88,7 +88,7 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,
 
   ######################!!!!!!!!!!!! TESTING
   #Ims
-  prob.test[m,1] <- cand.param[8]######################!!!!!!!!!!!! TESTING Im1
+  prob.test[m,1] <- cand.param[24]######################!!!!!!!!!!!! TESTING Im1
   prob.test[m,2] <- Prior.tmp######################!!!!!!!!!!!! TESTING
   prob.test[m,3] <- Fit$LL######################!!!!!!!!!!!! TESTING
   prob.test[m,4] <- Evidence######################!!!!!!!!!!!! TESTING
@@ -96,7 +96,8 @@ fit.SSIPM.MCMC <- function(fix.param,Data,Prior,savename,CVs = c(1,1/2,1/4,1/10,
   prob.test[m,6] <- p######################!!!!!!!!!!!! TESTING
   prob.test[m,7] <- Accept######################!!!!!!!!!!!! TESTING
   prob.test[m,8] <- ChainP[m-1]######################!!!!!!!!!!!! TESTING
-  
+  prob.test[m,9] <- cand.param[25]######################!!!!!!!!!!!! TESTING
+  prob.test[m,10] <- cand.param[26]######################!!!!!!!!!!!! TESTING
   
   if (Accept) { # proposal accepted
     Values[m,] = cand.param

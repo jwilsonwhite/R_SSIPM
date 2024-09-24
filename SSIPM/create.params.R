@@ -5,7 +5,7 @@
 #' @export
 #
 # 
-create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulation = 1, obsize = NULL){
+create.params <- function(Sp,MCMClen = 100,MCMCchains =2, regulation = 1, obsize = NULL){
   
   # Other inputs may be necessary in the future
   if (Sp == 'PACL'){ 
@@ -26,7 +26,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     Imsd = 9.96 #sd of immigrant size
     
     # IPM details
-    x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    x = 1:(ceiling(Linf*2))
+    meshmax = ceiling(Linf*2)
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
@@ -40,7 +42,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     Ivec = NULL
     
     #minimum observable size
-    obsize = 2
+    obsize = 9
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -65,7 +67,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       Imsd = 9.96 #sd of immigrant size
       
       # IPM details
-      x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      x = 1:(ceiling(Linf*2))
+      meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -103,7 +107,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       Imsd = 9.55 #sd of immigrant size
       
       # IPM details
-      x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      x = 1:(ceiling(Linf*2))
+      meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -141,7 +147,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       Imsd = 9.55 #sd of immigrant size
       
       # IPM details
-      x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      x = 1:(ceiling(Linf*2))
+      meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -177,7 +185,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     Imsd = 9.96 #sd of immigrant size
     
     # IPM details 
-    x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    x = 1:(ceiling(Linf*2))
+    meshmax = ceiling(Linf*2)
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
@@ -193,7 +203,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     Ivec = NULL
     
     #minimum observable fish size
-    obsize <- 2
+    obsize <- 9
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -219,7 +229,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     Imsd = 4.46 #sd of immigrant size
     
     # IPM details 
-    x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+    x = 1:(ceiling(Linf*2))
+    meshmax = ceiling(Linf*2)
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
@@ -232,7 +244,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
     F.sel = NA
     
     #minimum observable fish size
-    obsize <- 2
+    obsize <- 14
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -258,7 +270,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       Imsd = 4.73 #sd of immigrant size
       
       # IPM details 
-      x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      x = 1:(ceiling(Linf*2))
+      meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -271,7 +285,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       F.sel = NA
       
       #minimum observable fish size
-      obsize <- 2
+      obsize <- 9
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -297,7 +311,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       Imsd = 4.73 #sd of immigrant size
       
       # IPM details 
-      x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
+      x = 1:(ceiling(Linf*2))
+      meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
       
       # Recruit size distribution
@@ -310,7 +326,7 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       F.sel = NA
       
       #minimum observable fish size
-      obsize <- 2
+      obsize <- 9
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -325,9 +341,9 @@ create.params <- function(Sp,meshsize=100,MCMClen = 100,MCMCchains =2, regulatio
       }
   
  # Create list for output
-  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,obsize, x,dx,burnin,meshsize,Q,MCMClen,MCMCchains)
+  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,obsize, x, meshmax, dx,burnin,meshsize,Q,MCMClen,MCMCchains)
   names(fix.parm) <- c('Linf','k','M', 'Lfish','Lmat','Lvar',
-                       'Ifish','Rvec','F.sel', 'obsize', 'x','dx','burnin','meshsize','Q','MCMClen','MCMCchains')
+                       'Ifish','Rvec','F.sel', 'obsize', 'x','meshmax', 'dx','burnin','meshsize','Q','MCMClen','MCMCchains')
   
  return(fix.parm) 
 }

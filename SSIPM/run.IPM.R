@@ -17,7 +17,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   datayears = dim(Data)[2] # how many years of observations
   
   if(burnin == TRUE){
-    N0 = matrix(0,nrow=params$meshsize,ncol=params$burnin) # get the initial distribution
+    N0 = matrix(0,nrow=params$meshmax,ncol=params$burnin) # get the initial distribution
     N0[,1] = params$Rvec * params$r0 # initialize with one pulse of new recruits
     
     # Run the model for the burnin period
@@ -41,16 +41,16 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   } #end if run burning
 
   # Now run for the time period when we have data
-  N = matrix(0,nrow=params$meshsize,ncol=datayears) ####!!!!!!!!!1 removed +1 from data years
+  N = matrix(0,nrow=params$meshmax,ncol=datayears) ####!!!!!!!!!1 removed +1 from data years
   
   if(burnin == TRUE){ # if using a burnin period
     N[,1] = N0[,params$burnin]} else { #initialize the model
       if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
-
+# browser()
       N[,1] = params$Rvec * params$r1 + params$Ivec*params$Im1
       }
       if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
-      N[,1] =  params$Im * params$Ivec
+      N[,1] =  params$Im1 * params$Ivec
       }
       if(isTRUE(ipm.r) & !isTRUE(ipm.im)){ # if include only r term
       N[,1] =  params$r1 * params$Rvec
@@ -71,6 +71,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     # Im = get("params") [[paste0("Im",t)]] #!!!!!!!!!!!! TESTING individual immigration
     
     if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
+      # browser()
       N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + Im * params$Ivec 
     }else
       if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
@@ -87,10 +88,11 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     
     # apply particle filter & calculate likelihood
     if (!is.na(Data[1,t])){ # if there are observations in this model year, otherwise we just skip it
-      Nq = matrix(0,nrow=params$meshsize,ncol=params$Q)
+      Nq = matrix(0,nrow=params$meshmax,ncol=params$Q)
       Lt = rep(NA,params$Q)
       
       for (q in 1:params$Q){
+        ###!!!!!!!!! Temporary removed due to issues with calculating process error, use fixed error
         # rlm <- N[,t] # arithmetic expected value
         # rls <- params$error # arithmetic variance
         # rlm[ rlm <= 1e-323] = 1e-323 #Prevent the generation of Inf values
@@ -102,15 +104,19 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         # if(any(is.infinite(sdlog))){
         # sdlog[ sdlog == Inf] = max(sdlog[sdlog != Inf])
         # } #end if infinite sdlog
-        # Nq[,q] = rlnorm(n=params$meshsize, meanlog=meanlog, sdlog = sdlog) # lognormal process error
+        # Nq[,q] = rlnorm(n=params$meshmax, meanlog=meanlog, sdlog = sdlog) # lognormal process error
         
-        Nq[,q] = exp(rnorm(n=params$meshsize, mean= log(N[,t]), sd = params$error)) # lognormal process error
+        Nq[,q] = exp(rnorm(n=params$meshmax, mean= log(N[,t]), sd = params$error)) # lognormal process error
   
         
         Nq[ Nq[,q] <= 1e-323,  ] = 1e-323 #Prevent the generation of Inf values
           Nq.temp = Nq[,q] * params$correction[[1,t]] # correction for differing survey area 
           ####!!!!!!!!!!!!!!!!!!! Convert numerical density to count for posisson estimation
         Data.tmp <- Data[[t]]  ####!!!!!!!!!!!!!!!!!!! Separate data with likelihood calculation
+        
+        if(length(Data.tmp) != length(Nq.temp)){ #error code if size bins don't match
+          stop("Error: Data size bin does not match mesh size bin")
+        }
         
         if(!is.null(fix.param$obsize)){ #specify likely observable size
         Lt[q] = sum(dpois( x = Data.tmp[fix.param$obsize:length(Data.tmp)], lambda = Nq.temp[fix.param$obsize:length(Data.tmp)], log = TRUE)) 
@@ -125,7 +131,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       # advance the weighted average
       mLt = sum(Lt)
       Ltt = Lt/mLt
-      Ltm = t(matrix(Ltt,nrow=params$Q,ncol=params$meshsize))
+      Ltm = t(matrix(Ltt,nrow=params$Q,ncol=params$meshmax))
       
       Ntmp = rowSums(Nq * Ltm) # weighted average
       
