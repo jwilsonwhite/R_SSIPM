@@ -241,10 +241,7 @@ transect <- as.matrix(transect)
 #Define the phase of AR construction and year (to eventually identify years of AR expansion & fishing regulation)
 years <- colnames(fishtotal)
 datyr <- c(1:dim(fishtotal)[2])
-# phase <- c(rep("1",9),rep("2",11),rep("3",dim(fishtotal)[2]-20))
 phase <- c(1,rep("2",6), rep("2",dim(fishtotal)[2]-7))
-# phase <- c(c(1:dim(fishtotal)[2]), rep("2",dim(fishtotal)[2]-7))
-# phase <- c(rep("1",9))
 ar.phase <- cbind(years, datyr,phase)
 
 ```
@@ -300,23 +297,17 @@ fix.param$error <- 0.15
 
 R.mean <- log(0.0025) # recruitment
 R.sd <- 0.1
-Im.mean <- log(0.01) #immigration
+Im.mean <- log(0.02) #immigration
 Im.sd <- 0.1
 F.mean <- log(0.25) # fishing
 F.sd <- 0.1
 error.mean = 1.5 # process error shape
 error.sd = 0.025 # process error scale
 
-
 Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), paste0("Im",c(1:2)), 'F')
-# Names <- c( paste0("Im",c(1:2)), 'F')
 Means <- c(rep(R.mean,dim(fishtotal)[2]), log(0.03), Im.mean, F.mean)
-# Means <- c( log(0.03), Im.mean, F.mean)
 SDs <- c(rep(R.sd,dim(fishtotal)[2]), rep(Im.sd,2), F.sd)
-# SDs <- c( rep(Im.sd,2), F.sd)
 Type <- c( c(rep("lognormal",dim(fishtotal)[2]),rep("lognormal",2), "lognormal")) #type for recruitment, immigration, fishing, and process error
-# Type <- c(rep("lognormal",2), "lognormal")
-
 
 Prior <- list(Names,Means,SDs,Type)
 names(Prior) <- c('Names','Means','SDs','Type')
@@ -325,7 +316,7 @@ names(Prior) <- c('Names','Means','SDs','Type')
 
 ```{r}
 # Setup things for fitting via MCMC
-Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_A.RData', burnin = FALSE, ipm.r = FALSE)
+Fit <- fit.SSIPM.MCMC(fix.param,fishtotal,Prior,'mc_str_ar_P_A.RData', burnin = FALSE)
 # save the results...
 
 ```
@@ -374,33 +365,6 @@ plot(Post.fit$PosteriorProb)
 # #Posterior predictive checks (still in progress)
 ```
 
-### !!!!!!! TEST MAXIMUM LIKELIHOOD METHOD
-```{r}
-#prep cand.param for model
-# cand.param = exp(Prior$Means)
-# names(cand.param) = Prior$Names
-# #prep immigration size distribution
-# im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
-#       names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
-#       im.data <- fishtotal
-#       im.data[,c(1:50)] <- NA #not reliant on data
-#       im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
-#       stbstate <- im.ipm$N[,50] # Distant future based on IPM
-#       stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
-# 
-#       #replace Ivec with new stable state distribution
-#       fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
-# 
-# #-----------------------------------------------------------
-# # RUN maximum likelihood
-# m1 <- mle2(minuslogl =  run.IPM, start = list(fix.param = fix.param, cand.param = cand.param), data = list(Data = fishtotal))
-# 
-# run.IPM(fix.param = fix.param, cand.param = cand.param, burnin = FALSE, burnin.im = FALSE, burnin.r = FALSE, Data = fishtotal)[1]
-
-# , burnin = FALSE, burnin.im = FALSE, burnin.r = FALSE, ipm.im = TRUE,ipm.r = TRUE, Data = fishtotal
-```
-
-
 
 ## Plots
 #### TEST size distribution
@@ -427,161 +391,161 @@ plot(Post.fit$PosteriorProb)
 
 
 #####------------- Immigration size distribution
-
-Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),"Im1", "Im2", 'F')
-
-Means <- c(rep(exp(R.mean),dim(fishtotal)[2]), 0.03, 0.02, 0.25)
-
-SDs <- c(rep(R.sd,dim(fishtotal)[2]), Im.sd,Im.sd, F.sd,1)
-Type <- c(rep('lognormal',dim(fishtotal)[2]), 'lognormal','lognormal',
-          "lognormal") #type for recruitment, immigration, fishing, and process error
-
-Prior <- list(Names,Means,SDs,Type)
-names(Prior) <- c('Names','Means','SDs','Type')
-
-
-c(fix.param,Prior)
-  M = fix.param$MCMClen
-  Chains = fix.param$MCMCchains
-
-######-------Immigration ipm--------########
-Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),"Im1", "Im2", 'F')
-  Values <- matrix(NA,nrow=M,ncol =length(Names))
-  Values[1,] <- Prior$Means
-  colnames(Values) <- Names
-  cand.param <- Values[1,]
-   im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
-    names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
-    im.data <- fishtotal
-    im.data[,c(1:50)] <- NA #not reliant on data
-    im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
-    stbstate <- im.ipm$N[,50] # Distant future based on IPM
-    stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
-
-    #replace Ivec with new stable state distribution
-    fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
-######-------Immigration wnr initial year--------########
-#       im.wnr.init <- songs %>%
-#   filter( species_code == "SEPU",
-#       year == 2000,
-#          transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year,values_from = tot_count) %>%
-#   drop_na() %>%
-#   filter(reef_code == "WNR") %>%  #data from one site
-#   full_join(.,total_length) %>%
-#   filter(total_length %in% c(1:max(total_length))) %>%
-#   arrange(total_length) %>%  # re-order dataframe by numerical value
-#   select(4) %>% # choose only count of fish
-#   replace(is.na(.),0) %>% #add NA
-#     # select("2000") %>%
-#   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
-#
-# tot.im.wnr.init <- data.frame( length = rownames(im.wnr.init), count = im.wnr.init$sum) %>%
-#   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
-#
-# wnr.init.den <- density(tot.im.wnr.init$length)
-# af <- approxfun(wnr.init.den$x,wnr.init.den$y) #linear approximation of the values from density plot values
-# temp <- c(fix.param$x) #length interval
-# a <- af(temp) # approximate density based on
-# a[ is.na(a)  ] = 1e-323
-# a[c(1:fix.param$Ifish)] <- 0 #recruits are not moving
-# fix.param$Ivec <- a/sum(a*fix.param$dx)
-# plot(cbind(temp,a))
-######-------Immigration bk culmative size dist--------########
-#
-#       im.bk <- songs %>%
-#   filter( species_code == "SEPU",
-#           reef_code %in% c("BK"),
-#          transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year,values_from = tot_count) %>%
-#   drop_na() %>%
-#   # filter(reef_code%in% c("BK","SMK")) %>%  #data from one site
-#   full_join(.,total_length) %>%
-#   filter(total_length %in% c(1:max(total_length))) %>%
-#   arrange(total_length) %>%  # re-order dataframe by numerical value
-#   select(4:length(fishtotal)) %>% # choose only count of fish
-#   replace(is.na(.),0) %>% #add NA
-#     # select("2000") %>%
-#   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
-#
-# tot.bk <- data.frame( length = rownames(im.bk), count = im.bk$sum) %>%
-#   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
-#
-# bk.den <- density(tot.bk$length)
-# af <- approxfun(bk.den$x,bk.den$y) #linear approximation of the values from density plot values
-# temp <- c(fix.param$x) #length interval
-# a <- af(temp) # approximate density based on
-# a[ is.na(a)  ] = 1e-323
-# a[c(1:fix.param$Ifish)] <- 0
-# fix.param$Ivec <- a/sum(a*fix.param$dx)
+# 
+# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),"Im1", "Im2", 'F')
+# 
+# Means <- c(rep(exp(R.mean),dim(fishtotal)[2]), 0.03, 0.02, 0.25)
+# 
+# SDs <- c(rep(R.sd,dim(fishtotal)[2]), Im.sd,Im.sd, F.sd,1)
+# Type <- c(rep('lognormal',dim(fishtotal)[2]), 'lognormal','lognormal',
+#           "lognormal") #type for recruitment, immigration, fishing, and process error
+# 
+# Prior <- list(Names,Means,SDs,Type)
+# names(Prior) <- c('Names','Means','SDs','Type')
+# 
+# 
+# c(fix.param,Prior)
+#   M = fix.param$MCMClen
+#   Chains = fix.param$MCMCchains
+# 
+# ######-------Immigration ipm--------########
+# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),"Im1", "Im2", 'F')
+#   Values <- matrix(NA,nrow=M,ncol =length(Names))
+#   Values[1,] <- Prior$Means
+#   colnames(Values) <- Names
+#   cand.param <- Values[1,]
+#    im.cand.param <-  c( rep(1,51), 0, cand.param["F"],0) #use updated cand.param F value
+#     names(im.cand.param) <- c(paste0("r",c(0:50)), "Im",'F','error')
+#     im.data <- fishtotal
+#     im.data[,c(1:50)] <- NA #not reliant on data
+#     im.ipm <- run.IPM(fix.param, im.cand.param, im.data, burnin = FALSE, burnin.im = FALSE, ipm.im = FALSE)
+#     stbstate <- im.ipm$N[,50] # Distant future based on IPM
+#     stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
+# 
+#     #replace Ivec with new stable state distribution
+#     fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
+# ######-------Immigration wnr initial year--------########
+# #       im.wnr.init <- songs %>%
+# #   filter( species_code == "SEPU",
+# #       year == 2000,
+# #          transtype_strata %in% c("BOTTOM",NA)) %>%
+# #   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
+# #   drop_na(total_length) %>%
+# #   pivot_wider(names_from = year,values_from = tot_count) %>%
+# #   drop_na() %>%
+# #   filter(reef_code == "WNR") %>%  #data from one site
+# #   full_join(.,total_length) %>%
+# #   filter(total_length %in% c(1:max(total_length))) %>%
+# #   arrange(total_length) %>%  # re-order dataframe by numerical value
+# #   select(4) %>% # choose only count of fish
+# #   replace(is.na(.),0) %>% #add NA
+# #     # select("2000") %>%
+# #   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
 # #
-# plot(cbind(temp,a))
-# a <- ggplot_build( ggplot(tot.bk)+
-#   geom_density(aes(x = length), bw = fix.param$dx))
-# b <- data.frame(a$data) %>% select(x,y)
-
-######-------Immigration--------########
-
-
-Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior$Names)))
-Values[1,] <- Prior$Means
-colnames(Values) <- Names
-test <- run.IPM(fix.param = fix.param, cand.param =  Values, fishtotal, burnin = FALSE)
-sizedist <- data.frame(test$N)
-
-test.df <-  fishtotal
-test.df[,c(1:23)] <- NA
-test.na <- run.IPM(fix.param = fix.param, cand.param =  Values, test.df, burnin = FALSE)
-sizedist.na <- data.frame(test.na$N)
-
-#
-#
-y = as.character(c(2000:2022))
-t.sect <- data.frame( t(transect)) %>%
-  mutate(year = as.character(rownames(.)))
-# #### Plot the distributions
-tfish <- fishtotal %>% add_column(size = c(1:nrow(fishtotal)), .before = '2000') %>%
-  pivot_longer(cols = c("2000":"2022"),
-                                    names_to = "year",
-                                    values_to = "count") %>%
-  left_join(., t.sect) %>%
-  mutate(density = count/t.transect.)
-
-tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
-  rename_all(~y) %>%  #rename columns to match year
-  add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
-  mutate(size = size*fix.param$dx) %>%
-  pivot_longer(cols = "2000":"2022",
-               names_to = "year",
-               values_to = "N") %>%
-  group_by(year)
-  # mutate( tot_N = sum(N),
-  #   standardize = sum(N*fix.param$dx),
-  #   density= N/sum(N*fix.param$dx))
-
-ggplot()+
-  geom_line(data = tipm, aes(x = size, y = N), color = "red")+
-  # geom_line(test.ivec, mapping = aes(x = size, y = density),color = "blue")+ #immigration size distribution
-  # geom_histogram(data = tfish, aes(x = size))+
-  geom_line(data = tfish, aes(x = size, y = density, color = "Survey density"), linewidth = 0.1) +
-    # geom_line(data = tipm.na, aes(x = size, y = N), color = "red")+
-  # geom_density(test, mapping = aes( x = total_length, group = reef_code), color = "purple")+
-  facet_wrap(~year, scales = "free_y") +
-  scale_y_continuous("survey density") +
-  # geom_vline(xintercept = 9, linetype = "dashed")+
-                     # sec.axis = sec_axis(~.,"ipm density"))+
-  labs(color = "Density source")+
-    # scale_color_manual(values = c("Post.fit$Values[74900,]" = "red","Post.fit$Values[149800,]" ="blue","Post.fit$Values[225000,]" = "orange", "Survey density" = "black"))+
-    theme_bw()+
-  theme(legend.position = c(.8,.07))+
-  # ggtitle("Example wiht Im2 = 0")+
-  # theme(axis.title.y.right = element_text( color = "red"),
-  #       axis.text.y.right = element_text(color = "red"))+
-  lims(x = c(0,70))
+# # tot.im.wnr.init <- data.frame( length = rownames(im.wnr.init), count = im.wnr.init$sum) %>%
+# #   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
+# #
+# # wnr.init.den <- density(tot.im.wnr.init$length)
+# # af <- approxfun(wnr.init.den$x,wnr.init.den$y) #linear approximation of the values from density plot values
+# # temp <- c(fix.param$x) #length interval
+# # a <- af(temp) # approximate density based on
+# # a[ is.na(a)  ] = 1e-323
+# # a[c(1:fix.param$Ifish)] <- 0 #recruits are not moving
+# # fix.param$Ivec <- a/sum(a*fix.param$dx)
+# # plot(cbind(temp,a))
+# ######-------Immigration bk culmative size dist--------########
+# #
+# #       im.bk <- songs %>%
+# #   filter( species_code == "SEPU",
+# #           reef_code %in% c("BK"),
+# #          transtype_strata %in% c("BOTTOM",NA)) %>%
+# #   summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%
+# #   drop_na(total_length) %>%
+# #   pivot_wider(names_from = year,values_from = tot_count) %>%
+# #   drop_na() %>%
+# #   # filter(reef_code%in% c("BK","SMK")) %>%  #data from one site
+# #   full_join(.,total_length) %>%
+# #   filter(total_length %in% c(1:max(total_length))) %>%
+# #   arrange(total_length) %>%  # re-order dataframe by numerical value
+# #   select(4:length(fishtotal)) %>% # choose only count of fish
+# #   replace(is.na(.),0) %>% #add NA
+# #     # select("2000") %>%
+# #   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
+# #
+# # tot.bk <- data.frame( length = rownames(im.bk), count = im.bk$sum) %>%
+# #   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
+# #
+# # bk.den <- density(tot.bk$length)
+# # af <- approxfun(bk.den$x,bk.den$y) #linear approximation of the values from density plot values
+# # temp <- c(fix.param$x) #length interval
+# # a <- af(temp) # approximate density based on
+# # a[ is.na(a)  ] = 1e-323
+# # a[c(1:fix.param$Ifish)] <- 0
+# # fix.param$Ivec <- a/sum(a*fix.param$dx)
+# # #
+# # plot(cbind(temp,a))
+# # a <- ggplot_build( ggplot(tot.bk)+
+# #   geom_density(aes(x = length), bw = fix.param$dx))
+# # b <- data.frame(a$data) %>% select(x,y)
+# 
+# ######-------Immigration--------########
+# 
+# 
+# Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior$Names)))
+# Values[1,] <- Prior$Means
+# colnames(Values) <- Names
+# test <- run.IPM(fix.param = fix.param, cand.param =  Values, fishtotal, burnin = FALSE)
+# sizedist <- data.frame(test$N)
+# 
+# test.df <-  fishtotal
+# test.df[,c(1:23)] <- NA
+# test.na <- run.IPM(fix.param = fix.param, cand.param =  Values, test.df, burnin = FALSE)
+# sizedist.na <- data.frame(test.na$N)
+# 
+# #
+# #
+# y = as.character(c(2000:2022))
+# t.sect <- data.frame( t(transect)) %>%
+#   mutate(year = as.character(rownames(.)))
+# # #### Plot the distributions
+# tfish <- fishtotal %>% add_column(size = c(1:nrow(fishtotal)), .before = '2000') %>%
+#   pivot_longer(cols = c("2000":"2022"),
+#                                     names_to = "year",
+#                                     values_to = "count") %>%
+#   left_join(., t.sect) %>%
+#   mutate(density = count/t.transect.)
+# 
+# tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
+#   rename_all(~y) %>%  #rename columns to match year
+#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
+#   mutate(size = size*fix.param$dx) %>%
+#   pivot_longer(cols = "2000":"2022",
+#                names_to = "year",
+#                values_to = "N") %>%
+#   group_by(year)
+#   # mutate( tot_N = sum(N),
+#   #   standardize = sum(N*fix.param$dx),
+#   #   density= N/sum(N*fix.param$dx))
+# 
+# ggplot()+
+#   geom_line(data = tipm, aes(x = size, y = N), color = "red")+
+#   # geom_line(test.ivec, mapping = aes(x = size, y = density),color = "blue")+ #immigration size distribution
+#   # geom_histogram(data = tfish, aes(x = size))+
+#   geom_line(data = tfish, aes(x = size, y = density, color = "Survey density"), linewidth = 0.1) +
+#     # geom_line(data = tipm.na, aes(x = size, y = N), color = "red")+
+#   # geom_density(test, mapping = aes( x = total_length, group = reef_code), color = "purple")+
+#   facet_wrap(~year, scales = "free_y") +
+#   scale_y_continuous("survey density") +
+#   # geom_vline(xintercept = 9, linetype = "dashed")+
+#                      # sec.axis = sec_axis(~.,"ipm density"))+
+#   labs(color = "Density source")+
+#     # scale_color_manual(values = c("Post.fit$Values[74900,]" = "red","Post.fit$Values[149800,]" ="blue","Post.fit$Values[225000,]" = "orange", "Survey density" = "black"))+
+#     theme_bw()+
+#   theme(legend.position = c(.8,.07))+
+#   # ggtitle("Example wiht Im2 = 0")+
+#   # theme(axis.title.y.right = element_text( color = "red"),
+#   #       axis.text.y.right = element_text(color = "red"))+
+#   lims(x = c(0,70))
 # 
 # # 
 # Post.fit$Values[74900,]
