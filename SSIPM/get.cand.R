@@ -26,7 +26,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
       shape =  Prior$Means[index] #constant uninformative prior
       scale = Init[index]*(shape-1)
       
-      cand = invgamma::rinvgamma(n = 1, shape = shape, scale = scale) 
+      cand = invgamma::rinvgamma(n = 1, shape = shape, scale = scale)
       
       Cand.out = Init
       Cand.out[index] = cand
@@ -50,7 +50,7 @@ get.cand <- function(Init,Prior,index = NA,CV = 1){
         shape =  Prior$Means[k] #constant uninformative prior
         scale = Init[k]*(shape-1)
         
-        cand[k] = invgamma::rinvgamma(n = 1, shape = shape, scale = scale) 
+        cand[k] = invgamma::rinvgamma(n = 1, shape = shape, scale = scale)
         
       } #end if inverse gamma
       

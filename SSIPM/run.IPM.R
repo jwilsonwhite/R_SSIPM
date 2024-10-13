@@ -6,7 +6,7 @@
 #
 # 
 run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
-                    burnin.im = TRUE, burnin.r = TRUE, ipm.im = TRUE, ipm.r = TRUE){
+                    burnin.i = TRUE, burnin.r = TRUE, ipm.i = TRUE, ipm.r = TRUE){
   
   params = c(fix.param,cand.param)
   
@@ -22,16 +22,16 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     
     # Run the model for the burnin period
     for (t in 2:params$burnin){
-      if(isTRUE(burnin.im) & isTRUE( burnin.r)){ #if both r & im during burnin
-        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$Im0 * params$Ivec # midpoint rule integration
+      if(isTRUE(burnin.i) & isTRUE( burnin.r)){ #if both r & i during burnin
+        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$i0 * params$Ivec # midpoint rule integration
       }else
-        if(isTRUE(burnin.im) & !isTRUE(burnin.r)){ #if no recruit during burnin
-          N0[,t] <- K %*% N0[,t-1] * params$dx + params$Im0*params$Ivec
+        if(isTRUE(burnin.i) & !isTRUE(burnin.r)){ #if no recruit during burnin
+          N0[,t] <- K %*% N0[,t-1] * params$dx + params$i0*params$Ivec
         }else
-          if(isTRUE(burnin.r & !isTRUE(burnin.im))){ #if no recruit during burnin
+          if(isTRUE(burnin.r & !isTRUE(burnin.i))){ #if no immigrant during burnin
             N0[,t] <- K %*% N0[,t-1] * params$dx + params$r0 * params$Rvec
           }else
-            if(!isTRUE(burnin.im ) & !isTRUE( burnin.r)){
+            if(!isTRUE(burnin.i ) & !isTRUE( burnin.r)){
               N0[,t] <- K %*% N0[,t-1] * params$dx 
             }
       
@@ -43,19 +43,19 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   # Now run for the time period when we have data
   N = matrix(0,nrow=params$meshmax,ncol=datayears) ####!!!!!!!!!1 removed +1 from data years
   
-  if(burnin == TRUE){ # if using a burnin period
-    N[,1] = N0[,params$burnin]} else { #initialize the model
-      if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
+  if(burnin == TRUE){ # if using a burnin period, begin with burnin distribution
+    N[,1] = N0[,params$burnin]} else { #if not using burnin, initialize the model 
+      if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both i and r term
 # browser()
-      N[,1] = params$Rvec * params$r1 + params$Ivec*params$Im1
+      N[,1] = params$Rvec * params$r1 + params$Ivec*params$i1
       }
-      if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
-      N[,1] =  params$Im1 * params$Ivec
+      if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only i term
+      N[,1] =  params$i1 * params$Ivec
       }
-      if(isTRUE(ipm.r) & !isTRUE(ipm.im)){ # if include only r term
+      if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
       N[,1] =  params$r1 * params$Rvec
       }
-      if(!isTRUE(ipm.im) & !isTRUE(ipm.r)) { # if include none
+      if(!isTRUE(ipm.i) & !isTRUE(ipm.r)) { # if include none
       N[,1] =  0
       }
     } # end if burnin 
@@ -67,20 +67,20 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   for (t in 2:datayears){
     #advance the model
     Rt = get("params") [[paste0("r",t)]] # extract the recruitment for this year
-    Im = get("params") [[paste0("Im",params$phase[t])]] # extract immigration for this period
+    It = get("params") [[paste0("i",params$phase[t])]] # extract immigration for this period
     # Im = get("params") [[paste0("Im",t)]] #!!!!!!!!!!!! TESTING individual immigration
     
-    if(isTRUE(ipm.im) & isTRUE(ipm.r)){ # if include both im and r term
+    if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both im and r term
       # browser()
-      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + Im * params$Ivec 
+      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + It * params$Ivec 
     }else
-      if(isTRUE(ipm.im) & !isTRUE(ipm.r)){ # if include only im term
-        N[,t] = K %*% N[,t-1] * params$dx  + Im * params$Ivec
+      if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only im term
+        N[,t] = K %*% N[,t-1] * params$dx  + It * params$Ivec
       }else
-        if(isTRUE(ipm.r) & !isTRUE(ipm.im)){ # if include only r term
+        if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
           N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec
         }else
-          if(!isTRUE(ipm.im) & !isTRUE(ipm.r)) { # if include none
+          if(!isTRUE(ipm.i) & !isTRUE(ipm.r)) { # if include none
             N[,t] = K %*% N[,t-1] * params$dx
           }
 
@@ -111,8 +111,8 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         
         Nq[ Nq[,q] <= 1e-323,  ] = 1e-323 #Prevent the generation of Inf values
           Nq.temp = Nq[,q] * params$correction[[1,t]] # correction for differing survey area 
-          ####!!!!!!!!!!!!!!!!!!! Convert numerical density to count for posisson estimation
-        Data.tmp <- Data[[t]]  ####!!!!!!!!!!!!!!!!!!! Separate data with likelihood calculation
+          #Convert numerical density to count for posisson estimation
+        Data.tmp <- Data[[t]]  # Separate data with likelihood calculation
         
         if(length(Data.tmp) != length(Nq.temp)){ #error code if size bins don't match
           stop("Error: Data size bin does not match mesh size bin")
@@ -137,8 +137,17 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       
       N[,t] = Ntmp
       
-      L[t-1] =  sum( dpois( x = Data[[t]], lambda = N[,t], log = TRUE) ) # the likelihood
-  
+      N.tmp <-  N[,t]*params$correction[[1,t]] # correction for differing survey area 
+      Data.tmp <- Data[[t]]
+      
+      # the likelihood
+      if(!is.null(fix.param$obsize)){ #specify likely observable size
+      L[t-1] =  sum( dpois( x = Data.tmp[fix.param$obsize:length(Data)], lambda = N.tmp[fix.param$obsize:length(Data)], log = TRUE) ) 
+      } else {
+        L[t-1] =  sum( dpois( x = Data.tmp, lambda = N.tmp, log = TRUE) ) 
+        warning("Minimial observation size not specified, likelihood calculated across all sizes")
+      }
+      
     } # end if data
   } # end loop over data years
   

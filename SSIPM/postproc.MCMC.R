@@ -1,4 +1,4 @@
-#' Calculate the (log) prior given a fitted parameter value
+#' Post processing of MCMC simulation
 #'
 #' @importFrom invgamma dinvgamma
 #'
