@@ -11,7 +11,7 @@
 #' Deviance = -2*log-likelihood
 #' Pd ==‘posterior mean deviance − deviance of posterior means’
 
-ssipm.dic <- function(Data, fix.param, postproc.MCMC){
+ssipm.dic <- function(postproc.MCMC){
 
 Comp = list() #list to add components to
   

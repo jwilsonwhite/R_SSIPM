@@ -9,3 +9,5 @@ a <- load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
 a
 load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str.RData")
 load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str_ar_P_A.RData")
+load("/Users/Jonathan/Desktop/COAST/ssipm/mc_str_test.RData")
+mc_str

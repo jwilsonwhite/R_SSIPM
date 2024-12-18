@@ -11,7 +11,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   params = c(fix.param,cand.param)
   
   # Create the kernel
-  K = kernmat(params,timestep=1) #
+  # K = kernmat(params,timestep=1) #####!!!!!!!!!!!!!!!!! moved so kernal changes with year
   
   # Initialize the model:
   datayears = dim(Data)[2] # how many years of observations
@@ -22,14 +22,22 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     
     # Run the model for the burnin period
     for (t in 2:params$burnin){
+      
+      # Create the kernel ############!!!!! TEST regulation customization
+      if(is.null( params$regulation)){ ############!!!!! TEST regulation customization
+        K = kernmat(params,timestep=1) } else{ ####!!!!!! Keep normal if no regulation change
+        params$F.sel = get("params") [[paste0("F.sel",params$regulation[[1]])]] # Fishing selectivity uses value from first year
+        K = kernmat(params,timestep=1) #if there is, regulation based on characterization
+      }
+      
       if(isTRUE(burnin.i) & isTRUE( burnin.r)){ #if both r & i during burnin
-        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$i0 * params$Ivec # midpoint rule integration
+        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$i0 * params$Ivec0 # midpoint rule integration
       }else
         if(isTRUE(burnin.i) & !isTRUE(burnin.r)){ #if no recruit during burnin
-          N0[,t] <- K %*% N0[,t-1] * params$dx + params$i0*params$Ivec
+          N0[,t] <- K %*% N0[,t-1] * params$dx + params$i0*params$Ivec0
         }else
           if(isTRUE(burnin.r & !isTRUE(burnin.i))){ #if no immigrant during burnin
-            N0[,t] <- K %*% N0[,t-1] * params$dx + params$r0 * params$Rvec
+            N0[,t] <- K %*% N0[,t-1] * params$dx + params$r0 * params$Rvec1
           }else
             if(!isTRUE(burnin.i ) & !isTRUE( burnin.r)){
               N0[,t] <- K %*% N0[,t-1] * params$dx 
@@ -43,14 +51,15 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   # Now run for the time period when we have data
   N = matrix(0,nrow=params$meshmax,ncol=datayears) ####!!!!!!!!!1 removed +1 from data years
   
+  #initializing the model
   if(burnin == TRUE){ # if using a burnin period, begin with burnin distribution
     N[,1] = N0[,params$burnin]} else { #if not using burnin, initialize the model 
       if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both i and r term
 # browser()
-      N[,1] = params$Rvec * params$r1 + params$Ivec*params$i1
+      N[,1] = params$Rvec * params$r1 + params$Ivec1*params$i1
       }
       if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only i term
-      N[,1] =  params$i1 * params$Ivec
+      N[,1] =  params$i1 * params$Ivec1
       }
       if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
       N[,1] =  params$r1 * params$Rvec
@@ -60,22 +69,30 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       }
     } # end if burnin 
   
-  colnames(N) = c(1:(datayears)) ####!!!!!!!!!1 removed +1 from data years
+  colnames(N) = c(1:(datayears)) 
   L = rep(NA,datayears)
   N[ N[,1] <= 1e-323, 1 ] = 1e-323 #Prevent the generation of Inf values
   
   for (t in 2:datayears){
+    
+    # Create the kernel with regulation customization
+    if(is.null( params$regulation)){ # If fishing regulation customization needed
+      K = kernmat(params,timestep=1)} else{ # Keep kernal the same if no regualtion
+        params$F.sel = get("params") [[paste0("F.sel",params$regulation[[t]])]] # Fishing selectivity uses value based on year
+        K = kernmat(params,timestep=1) 
+      }
+    
     #advance the model
     Rt = get("params") [[paste0("r",t)]] # extract the recruitment for this year
-    It = get("params") [[paste0("i",params$phase[t])]] # extract immigration for this period
-    # Im = get("params") [[paste0("Im",t)]] #!!!!!!!!!!!! TESTING individual immigration
+    It = get("params") [[paste0("i",t)]] # extract immigration for this year
+    Ivect = get("params") [[paste0("Ivec",t)]] # extract immigration size distribution for this year
     
     if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both im and r term
       # browser()
-      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + It * params$Ivec 
+      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + It * Ivect
     }else
       if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only im term
-        N[,t] = K %*% N[,t-1] * params$dx  + It * params$Ivec
+        N[,t] = K %*% N[,t-1] * params$dx  + It * Ivect
       }else
         if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
           N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec
@@ -83,7 +100,12 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
           if(!isTRUE(ipm.i) & !isTRUE(ipm.r)) { # if include none
             N[,t] = K %*% N[,t-1] * params$dx
           }
-
+    
+    if(any(is.nan( N[,t]))){ #######!!!!!!!!!!!!!!!!! testing
+      browser()
+    }
+    
+    
     N[ N[,t] <= 1e-323, t ] = 1e-323 #Prevent the generation of Inf values
     
     # apply particle filter & calculate likelihood
@@ -108,6 +130,9 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         
         Nq[,q] = exp(rnorm(n=params$meshmax, mean= log(N[,t]), sd = params$error)) # lognormal process error
   
+        if(any(is.na( Nq[,q]))){ #######!!!!!!!!!!!!!!!!! testing
+          browser()
+        }
         
         Nq[ Nq[,q] <= 1e-323,  ] = 1e-323 #Prevent the generation of Inf values
           Nq.temp = Nq[,q] * params$correction[[1,t]] # correction for differing survey area 
@@ -119,10 +144,40 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         }
         
         if(!is.null(fix.param$obsize)){ #specify likely observable size
-        Lt[q] = sum(dpois( x = Data.tmp[fix.param$obsize:length(Data.tmp)], lambda = Nq.temp[fix.param$obsize:length(Data.tmp)], log = TRUE)) 
+        # Lt[q] = sum(dpois( x = Data.tmp[fix.param$obsize:length(Data.tmp)], lambda = Nq.temp[fix.param$obsize:length(Data.tmp),], log = TRUE)) #Poisson likelihood
+          
+          #!!! TEST NEGATIVE BINOMIAL
+         size = median(Nq.temp[fix.param$obsize:length(Data.tmp)]^2 / (params$obs.error^2 - Nq.temp[fix.param$obsize:length(Data.tmp)]))# !!!!!!!!!!!!!!!!!! TEST
+         Lt[q] = sum(dnbinom( x = Data.tmp[fix.param$obsize:length(Data.tmp)], size = size, mu  = Nq.temp[fix.param$obsize:length(Data.tmp)], log = TRUE))#!!!!!!!!!!!!!!!!!! TEST
+          
+         if(size <0){ #########!!!!!!!!! TESTING
+           browser()
+         }
+         
+      
         # poisson likelihood (note - requires integer count data)
         } else{
-          Lt[q] = sum(dpois( x = Data.tmp, lambda = Nq.temp, log = TRUE)) # poisson likelihood (note - requires integer count data)
+          # Lt[q] = sum(dpois( x = Data.tmp, lambda = Nq.temp, log = TRUE)) # poisson likelihood (note - requires integer count data)
+          
+          #!!! TEST NEGATIVE BINOMIAL
+          size = Nq.temp^2/(params$obs.error^2 - Nq.temp) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          Lt[q] = sum(dnbinom( x = Data.tmp, size = size,  mu = Nq.temp, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          
+          #!!! TEST GAMMA
+          # x = Data[[t]]/params$correction[[t]] # keep density but remove 0s # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # # x[ x == 0] = 1e-308 # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # shape = Nq[,q]^2/ params$obs.error # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # scale = params$obs.error/Nq[,q] # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # Lt[q] = sum(dgamma(x = x, shape = shape, scale = scale, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # Lt[q][ Lt[q] >= 1e+308] = 1e+308 #Prevent the generation of Inf values # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          
+          #!!! TEST lognormal
+          # x = Data[[t]]/params$correction[[t]] # keep density but remove 0s # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # x[ x == 0] = 1e-308 # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # meanlog = log(Nq[,q]^2 / sqrt(params$obs.error^2 +Nq[,q]^2)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # sdlog = sqrt(log(1 + (params$obs.error^2 /Nq[,q]^2))) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          # Lt[q] = sum(dlnorm(x = x, meanlog =  meanlog, sdlog = sdlog, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          
           warning("Minimial observation size not specified, likelihood calculated across all sizes")
         }
       }  
@@ -140,11 +195,25 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       N.tmp <-  N[,t]*params$correction[[1,t]] # correction for differing survey area 
       Data.tmp <- Data[[t]]
       
-      # the likelihood
+      # the likelihood   !!!!!!!!!!! TRY Negative Binomial
       if(!is.null(fix.param$obsize)){ #specify likely observable size
-      L[t-1] =  sum( dpois( x = Data.tmp[fix.param$obsize:length(Data)], lambda = N.tmp[fix.param$obsize:length(Data)], log = TRUE) ) 
+      # L[t-1] =  sum( dpois( x = Data.tmp[fix.param$obsize:length(Data)], lambda = N.tmp[fix.param$obsize:length(Data)], log = TRUE) ) #poisson
+        
+        size = median(N.tmp[fix.param$obsize:nrow(Data)]^2 / (params$obs.error^2 - N.tmp[fix.param$obsize:nrow(Data)])) # TEST NEGATIVE BINOMIAL !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+      L[t-1] =  sum(dnbinom(x = Data.tmp[fix.param$obsize:nrow(Data)], size = size, mu = N.tmp[fix.param$obsize:nrow(Data)], log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+        
+      # if(any(is.nan(L[t-1]))){ ###!!!!!!!!!!!!!!!!!!!!!!!!! TESTING
+      #   browser()
+      # }
+      
       } else {
-        L[t-1] =  sum( dpois( x = Data.tmp, lambda = N.tmp, log = TRUE) ) 
+        # L[t-1] =  sum( dpois( x = Data.tmp, lambda = N.tmp, log = TRUE) ) #poission likelihood
+        
+        #!!! TEST Negative BINOMIAL
+        size = N.tmp^2 / (params$obs.error^2 - N.tmp) # TEST NEGATIVE BINOMIAL !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+        L[t-1] =  sum( dnbinom( x = Data.tmp,size = size, mu = N.tmp, log = TRUE) ) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+        
+
         warning("Minimial observation size not specified, likelihood calculated across all sizes")
       }
       
