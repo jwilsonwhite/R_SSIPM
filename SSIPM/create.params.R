@@ -5,7 +5,7 @@
 #' @export
 #
 # 
-create.params <- function(Sp,MCMClen = 100,MCMCchains =2, obsize = NULL, regulation = NULL){
+create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulation = NULL){
   
   # Other inputs may be necessary in the future
   if (Sp == 'PACL'){ 
@@ -51,7 +51,7 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, obsize = NULL, regulat
     Ivec = NULL
     
     #minimum observable size
-    obsize = 9
+    ogive = 9
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -104,7 +104,7 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, obsize = NULL, regulat
       Ifish = length(x[x<9]) #size of Immigration cutoff (cm)
       
       #minimum observable fish size
-      obsize <- 9
+      ogive <- 9
       
       # other model parameters
       burnin = 20 # how many years to initialize the model pre-data
@@ -151,7 +151,7 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, obsize = NULL, regulat
     Ivec = NULL
     
     #minimum observable fish size
-    obsize <- 1
+    ogive <- 1
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
@@ -166,9 +166,9 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, obsize = NULL, regulat
       }
   
  # Create list for output
-  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,F.sel1,F.sel2,obsize, x, meshmax, dx,burnin,meshsize,Q,MCMClen,MCMCchains)
+  fix.parm <- list(Linf,k,M,Lfish,Lmat,Lvar, Ifish, Rvec, F.sel,F.sel1,F.sel2,ogive, x, meshmax, dx,burnin,meshsize,Q,MCMClen,MCMCchains)
   names(fix.parm) <- c('Linf','k','M', 'Lfish','Lmat','Lvar',
-                       'Ifish','Rvec','F.sel','F.sel1','F.sel2', 'obsize', 'x','meshmax', 'dx','burnin','meshsize','Q','MCMClen','MCMCchains')
+                       'Ifish','Rvec','F.sel','F.sel1','F.sel2', 'ogive', 'x','meshmax', 'dx','burnin','meshsize','Q','MCMClen','MCMCchains')
   
  return(fix.parm) 
 }

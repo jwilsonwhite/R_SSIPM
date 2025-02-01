@@ -31,10 +31,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       }
       
       if(isTRUE(burnin.i) & isTRUE( burnin.r)){ #if both r & i during burnin
-        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$i0 * params$Ivec0 # midpoint rule integration
+        N0[,t] <- K %*% N0[,t-1] * params$dx  + params$r0 * params$Rvec + params$I.size*params$i0 * params$Ivec0 # midpoint rule integration
       }else
         if(isTRUE(burnin.i) & !isTRUE(burnin.r)){ #if no recruit during burnin
-          N0[,t] <- K %*% N0[,t-1] * params$dx + params$i0*params$Ivec0
+          N0[,t] <- K %*% N0[,t-1] * params$dx + params$I.size*params$i0*params$Ivec0
         }else
           if(isTRUE(burnin.r & !isTRUE(burnin.i))){ #if no immigrant during burnin
             N0[,t] <- K %*% N0[,t-1] * params$dx + params$r0 * params$Rvec1
@@ -56,10 +56,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     N[,1] = N0[,params$burnin]} else { #if not using burnin, initialize the model 
       if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both i and r term
 # browser()
-      N[,1] = params$Rvec * params$r1 + params$Ivec1*params$i1
+      N[,1] = params$Rvec * params$r1 + params$I.size*params$Ivec1*params$i1
       }
       if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only i term
-      N[,1] =  params$i1 * params$Ivec1
+      N[,1] =  params$I.size*params$i1 * params$Ivec1
       }
       if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
       N[,1] =  params$r1 * params$Rvec
@@ -89,10 +89,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     
     if(isTRUE(ipm.i) & isTRUE(ipm.r)){ # if include both im and r term
       # browser()
-      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + It * Ivect
+      N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec + params$I.size*It * Ivect
     }else
       if(isTRUE(ipm.i) & !isTRUE(ipm.r)){ # if include only im term
-        N[,t] = K %*% N[,t-1] * params$dx  + It * Ivect
+        N[,t] = K %*% N[,t-1] * params$dx  + params$I.size*It * Ivect
       }else
         if(isTRUE(ipm.r) & !isTRUE(ipm.i)){ # if include only r term
           N[,t] = K %*% N[,t-1] * params$dx  + Rt * params$Rvec
@@ -143,25 +143,18 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
           stop("Error: Data size bin does not match mesh size bin")
         }
         
-        if(!is.null(fix.param$obsize)){ #specify likely observable size
-        # Lt[q] = sum(dpois( x = Data.tmp[fix.param$obsize:length(Data.tmp)], lambda = Nq.temp[fix.param$obsize:length(Data.tmp),], log = TRUE)) #Poisson likelihood
+        if(!is.null(fix.param$ogive)){ #specify likely observable size
+        # Lt[q] = sum(dpois( x = Data.tmp[fix.param$ogive:length(Data.tmp)], lambda = Nq.temp[fix.param$ogive:length(Data.tmp),], log = TRUE)) #Poisson likelihood
           
           #!!! TEST NEGATIVE BINOMIAL
-         size = median(Nq.temp[fix.param$obsize:length(Data.tmp)]^2 / (params$obs.error^2 - Nq.temp[fix.param$obsize:length(Data.tmp)]))# !!!!!!!!!!!!!!!!!! TEST
-         Lt[q] = sum(dnbinom( x = Data.tmp[fix.param$obsize:length(Data.tmp)], size = size, mu  = Nq.temp[fix.param$obsize:length(Data.tmp)], log = TRUE))#!!!!!!!!!!!!!!!!!! TEST
-          
-         if(size <0){ #########!!!!!!!!! TESTING
-           browser()
-         }
+         Lt[q] = sum(dnbinom( x = Data.tmp[fix.param$ogive:length(Data.tmp)], size = params$nb.k, mu  = Nq.temp[fix.param$ogive:length(Data.tmp)], log = TRUE))#!!!!!!!!!!!!!!!!!! TEST
          
-      
         # poisson likelihood (note - requires integer count data)
         } else{
           # Lt[q] = sum(dpois( x = Data.tmp, lambda = Nq.temp, log = TRUE)) # poisson likelihood (note - requires integer count data)
           
           #!!! TEST NEGATIVE BINOMIAL
-          size = Nq.temp^2/(params$obs.error^2 - Nq.temp) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          Lt[q] = sum(dnbinom( x = Data.tmp, size = size,  mu = Nq.temp, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+          Lt[q] = sum(dnbinom( x = Data.tmp, size = params$nb.k,  mu = Nq.temp, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
           
           #!!! TEST GAMMA
           # x = Data[[t]]/params$correction[[t]] # keep density but remove 0s # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
@@ -196,11 +189,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       Data.tmp <- Data[[t]]
       
       # the likelihood   !!!!!!!!!!! TRY Negative Binomial
-      if(!is.null(fix.param$obsize)){ #specify likely observable size
-      # L[t-1] =  sum( dpois( x = Data.tmp[fix.param$obsize:length(Data)], lambda = N.tmp[fix.param$obsize:length(Data)], log = TRUE) ) #poisson
+      if(!is.null(fix.param$ogive)){ #specify likely observable size
+      # L[t-1] =  sum( dpois( x = Data.tmp[fix.param$ogive:length(Data)], lambda = N.tmp[fix.param$ogive:length(Data)], log = TRUE) ) #poisson
         
-        size = median(N.tmp[fix.param$obsize:nrow(Data)]^2 / (params$obs.error^2 - N.tmp[fix.param$obsize:nrow(Data)])) # TEST NEGATIVE BINOMIAL !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-      L[t-1] =  sum(dnbinom(x = Data.tmp[fix.param$obsize:nrow(Data)], size = size, mu = N.tmp[fix.param$obsize:nrow(Data)], log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+      L[t-1] =  sum(dnbinom(x = Data.tmp[fix.param$ogive:nrow(Data)], size = params$nb.k, mu = N.tmp[fix.param$ogive:nrow(Data)], log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
         
       # if(any(is.nan(L[t-1]))){ ###!!!!!!!!!!!!!!!!!!!!!!!!! TESTING
       #   browser()
@@ -210,8 +202,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
         # L[t-1] =  sum( dpois( x = Data.tmp, lambda = N.tmp, log = TRUE) ) #poission likelihood
         
         #!!! TEST Negative BINOMIAL
-        size = N.tmp^2 / (params$obs.error^2 - N.tmp) # TEST NEGATIVE BINOMIAL !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-        L[t-1] =  sum( dnbinom( x = Data.tmp,size = size, mu = N.tmp, log = TRUE) ) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
+        L[t-1] =  sum( dnbinom( x = Data.tmp,size = params$nb.k, mu = N.tmp, log = TRUE) ) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
         
 
         warning("Minimial observation size not specified, likelihood calculated across all sizes")

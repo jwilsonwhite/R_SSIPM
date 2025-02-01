@@ -24,8 +24,12 @@ samp.ipm <- run.IPM(fix.param = fix.param, cand.param = sample.cand, Data = data
 
 #standardize and place in data frame
 last.ipm <- samp.ipm$N[,ncol(samp.ipm$N)]*fix.param$correction[[ncol(Data)]] # abundance on the last year
-# samp.dist[,i] <- samp.ipm$N[,ncol(samp.ipm$N)]/sum(samp.ipm$N[,ncol(samp.ipm$N)]*fix.param$dx) #normalize to unity
-samp.dist[,i] <- rpois(n = 1:nrow(Data), lambda = last.ipm) #simulated count data 
+
+#Poission distribution
+# samp.dist[,i] <- rpois(n = 1:nrow(Data), lambda = last.ipm) #simulated count data 
+
+# Negative binomial
+samp.dist[,i] <- rnbinom(n = 1:nrow(Data), size = sample.cand[["nb.k"]], mu = last.ipm) #negative binomial
 }
   samp.dist <- data.frame(samp.dist)
   
@@ -61,14 +65,20 @@ samp.dist[,i] <- rpois(n = 1:nrow(Data), lambda = last.ipm) #simulated count dat
 # samp.quart <- data.frame(t(bind_rows(data.frame(samp.dist.quart.20),data.frame(samp.dist.quart.0)))) %>% 
 #   mutate(stat = rownames(.)) %>% pivot_longer(cols = c(1:2), names_to = "size", values_to = "value") %>% 
 #   pivot_wider(names_from = stat, values_from = value)
-
+  
   #bin size classes to 10 bins
-  samp.bin <- samp.dist %>% mutate(size.bin = cut(c(1:nrow(samp.dist)),breaks = 10)) #categorize bins
+  if(!is.null( fix.param$ogive)){
+  samp.dist.ogive <- samp.dist[c(fix.param$ogive:nrow(samp.dist)),]
+  samp.bin <- samp.dist.ogive %>% mutate(size.bin = cut(c(fix.param$ogive :nrow(samp.dist)),breaks = 10)) #categorize bins
   samp.bin.name <- unique(samp.bin$size.bin)
+  } else {
+    samp.bin <- samp.dist %>% mutate(size.bin = cut(c(1:nrow(samp.dist)),breaks = 10)) #categorize bins
+    samp.bin.name <- unique(samp.bin$size.bin)
+  }
 #integrate to bin
     samp.int.bin <- samp.bin %>%
       pivot_longer(cols = c(1:1000),names_to = "col",values_to = "dist") %>%
-      summarise(sum.dist = sum(dist),.by = c(size.bin, col)) %>%  #summarize across size bins of each run
+      summarise(sum.dist = sum(dist),.by = c(size.bin, col)) %>%  #summarize across a size bins
       mutate(sum.dist = sum.dist/fix.param$correction[[ncol(Data)]]) %>% #make abundance to density
       pivot_wider(names_from = col,values_from = sum.dist) %>%
       dplyr::select(!size.bin) #remove categroical bins
@@ -98,14 +108,29 @@ samp.dist[,i] <- rpois(n = 1:nrow(Data), lambda = last.ipm) #simulated count dat
   #   mutate(density = count/ fix.param$correction[ncol(Data)])
   
 # get quartile of each size 
-data.ipm <- Data %>% select(ncol(Data)) %>% #select the last column (last year of data)
+  if(!is.null(fix.param$ogive)){
+    data.ipm <- Data[fix.param$ogive:nrow(Data),]
+
+data.ipm <- data.ipm %>% select(ncol(Data)) %>% #select the last column (last year of data)
   rename(count = everything()) %>% #rename so universial naming scheme
-  mutate(length = row.names(Data),
-         length = as.numeric(length)) %>%
-  mutate(size.bin = cut(c(1:nrow(.)),breaks = 10)) %>%  #set into bins
+  mutate(length = fix.param$ogive:nrow(Data),
+         length = as.numeric(fix.param$ogive:nrow(Data))) %>%
+  mutate(size.bin = cut(c(fix.param$ogive:nrow(Data)),breaks = 10)) %>%  #set into bins
   summarise(sum.bins = sum(count), .by = size.bin) %>%
   mutate(length = as.numeric(c(1:10)),
          density = sum.bins/fix.param$correction[[ncol(Data)]]) # rename to have bins be numerical
+  }else{
+    data.ipm <- Data %>% select(ncol(Data)) %>% #select the last column (last year of data)
+      rename(count = everything()) %>% #rename so universial naming scheme
+      mutate(length = row.names(Data),
+             length = as.numeric(length)) %>%
+      mutate(size.bin = cut(c(1:nrow(.)),breaks = 10)) %>%  #set into bins
+      summarise(sum.bins = sum(count), .by = size.bin) %>%
+      mutate(length = as.numeric(c(1:10)),
+             density = sum.bins/fix.param$correction[[ncol(Data)]]) # rename to have bins be numerical
+    
+  }
+  
   
   # uncount(sum.bins) # setup to be used in denstiy
 
@@ -122,19 +147,21 @@ data.ipm <- Data %>% select(ncol(Data)) %>% #select the last column (last year o
 #plot poter simualtion + data
 plot <- ggplot()+
   # geom_point(data = samp.dist.quart, mapping = aes(x = size, y =mean),color = "lightblue", size = 2)+
-  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_95, ymax = upper_95), color = "skyblue2", linewidth = 1.5)+
-  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_50, ymax = upper_50), color = "skyblue4", linewidth = 2, alpha = 0.5)+
+  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_95, ymax = upper_95), color = "skyblue2", linewidth = 1.5)+ #95% confidence Interval
+  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_50, ymax = upper_50), color = "skyblue4", linewidth = 2, alpha = 0.5)+ #50% confidence Interval
   # geom_line(data = samp.dist %>% mutate(size = c(1:nrow(samp.dist))) %>%  pivot_longer(cols = c(1:1000),
   #                                             names_to = "iteration",
   #                                             values_to = "density"),
   #           aes(x = size, y = density, group = iteration), color = "grey66")+
   # geom_point(data = data.ipm, aes(x = size, y = density),color = "#9A32CD")+
   geom_point(data.ipm %>% mutate(size = size.bin),
-  mapping = aes(x = size, y = density),color = "#9A32CD")+
+  mapping = aes(x = size, y = density),color = "#9A32CD", size = 2)+
   # labs(x = "Size (20cm)")+
   theme_bw()+
   theme(axis.title.y = element_blank(),
-        axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=1) )
+        axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=1,size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title.x = element_blank())
 
 return(plot)
 

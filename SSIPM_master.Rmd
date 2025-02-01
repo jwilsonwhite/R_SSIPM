@@ -44,6 +44,7 @@ source(here("SSIPM","kernmat.R"))
 source(here("SSIPM","run.IPM.R"))
 source(here("SSIPM","postproc.MCMC.R"))
 source(here("SSIPM","ssipm.dic.R"))
+source(here("SSIPM","post.pred.check.R"))
 ```
 
 # Read in data
@@ -375,7 +376,7 @@ regulation.m <- c(rep("1",length(c(2009:2012))), rep("2",length(c(2013:2022))))
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
 Sp <- 'SEPU'
 meshsize = 100
-MCMClen = 20000 # how long are MCMC chains
+MCMClen = 10^4 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
 # we may be missing a few necessary parameters in create.params()...add in as needed
@@ -397,7 +398,7 @@ fix.param.m.sepu$regulation <- NULL #No change in regulation occured
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
 Sp <- 'PACL'
 meshsize = 100
-MCMClen = 100 # how long are MCMC chains
+MCMClen = 10^4 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
 # we may be missing a few necessary parameters in create.params()...add in as needed
@@ -418,7 +419,7 @@ fix.param.m.pacl$regulation <- regulation.m #Insert identifier for changes in re
 # Define the species to be examined and generate a list of fixed demographic parameters and IPM attributes/metadata
 Sp <- 'PANE'
 meshsize = 100
-MCMClen = 100 # how long are MCMC chains
+MCMClen = 10^4 # how long are MCMC chains
 MCMCchains = 3 # how many chains
 
 # we may be missing a few necessary parameters in create.params()...add in as needed
@@ -695,6 +696,88 @@ names(Ivec.m.pane) <- c(paste0("Ivec",c(1:(dim(fishtotal.m.pane)[2]+1))),'Ivec0'
 fix.param.m.pane <- c(fix.param.m.pane,Ivec.m.pane)
 ```
 
+
+# Size-dependent immigration function
+Size dependent immigration funciton is used to correct for smaller fishes less likely to immigrate from one reef to another
+
+Survey mean size and standard deviation across all years
+
+### California Sheephead
+Small size likely to move if more large fish (Topping et al)
+```{r}
+I.size.param <- songs %>%
+  filter( species_code == "SEPU",
+          reef_code %in% c("SMK"),
+         transtype_strata %in% c("BOTTOM",NA)) %>% 
+  summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%  # get total count per year per length bin
+  drop_na(total_length) %>% 
+  # filter(!total_length <9) %>%  # remove recruit sized fish fish
+  uncount(tot_count) %>% 
+  summarise(mean = mean(total_length),
+            sd = sd(total_length),
+            median = median(total_length),
+            .by = year) %>% # mean and sd of years
+  summarise(mean = mean(.$mean),
+            sd = mean(.$sd)) # average across all years
+
+I.size.fun <- pnorm(q = fix.param.sepu$x, mean = I.size.param$mean, sd = I.size.param$sd) #culumutive distribution function
+
+# add to fixed parameters
+fix.param.sepu$I.size <- I.size.fun
+fix.param.m.sepu$I.size <- I.size.fun
+
+```
+
+### Kelp Bass 
+Smaller fish more likely to move, larger adult fish more stationary (Lowe et al 2003)
+```{r}
+I.size.param <- songs %>%
+  filter( species_code == "PACL",
+          reef_code %in% c("SMK"),
+         transtype_strata %in% c("BOTTOM",NA)) %>%
+  summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%  # get total count per year per length bin
+  drop_na(total_length) %>%
+  filter(!total_length <9) %>%  # remove recruit sized fish fish
+  uncount(tot_count) %>%
+  summarise(mean = mean(total_length),
+            sd = sd(total_length),
+            median = median(total_length),
+            .by = year) %>% # mean and sd of years
+  summarise(mean = mean(.$mean),
+            sd = mean(.$sd)) # average across all years
+
+I.size.fun <- 1-pnorm(q = fix.param.pacl$x, mean = I.size.param$mean, sd = I.size.param$sd) #cumulative distribution function
+
+fix.param.pacl$I.size <- I.size.fun
+fix.param.m.pacl$I.size <- I.size.fun
+
+```
+
+### Barred Sandbass 
+larger fish have smaller home range (Mason & Lowe 2010)
+```{r}
+I.size.param <- songs %>%
+  filter( species_code == "PANE",
+          reef_code %in% c("SMK"),
+         transtype_strata %in% c("BOTTOM",NA)) %>%
+  summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%  # get total count per year per length bin
+  drop_na(total_length) %>%
+  # filter(!total_length <9) %>%  # remove recruit sized fish fish
+  uncount(tot_count) %>%
+  summarise(mean = mean(total_length),
+            sd = sd(total_length),
+            median = median(total_length),
+            .by = year) %>% # mean and sd of years
+  summarise(mean = mean(.$mean),
+            sd = mean(.$sd)) # average across all years
+
+I.size.fun <- (1-pnorm(q = fix.param.pane$x, mean = I.size.param$mean, sd = I.size.param$sd)*0.5)
+
+fix.param.pane$I.size <- I.size.fun
+fix.param.m.pane$I.size <- I.size.fun
+```
+
+
 # Priors
 
 ### California Sheephead
@@ -706,37 +789,34 @@ r.mean <- log(0.0025) # recruitment
 r.sd <- 0.1
 i.mean <- log(0.02) #immigration
 i.sd <- 0.1
-F.mean <- log(0.25) # fishing
+F.mean <- log(0.22) # fishing
 F.sd <- 0.1
-obs.error.mean <- log(10) #observation error
-obs.error.sd <- 0.1
-error.mean = 2 # process error shape
-error.sd = 0.025 # process error scale
+nb.k.mean <- log(1) #negative binomial overdisperison
+nb.k.sd <- 0.1
+# error.mean = 2 # process error shape
+# error.sd = 0.025 # process error scale
 
 # P & A
-Names <- c(paste0("r",c(1:(dim(fishtotal.sepu)[2]))), paste0("i",c(1:(dim(fishtotal.sepu)[2]))), 'F', "obs.error")
-Means <- c(rep(r.mean,dim(fishtotal.sepu)[2]), rep(i.mean,dim(fishtotal.sepu)[2]), F.mean,obs.error.mean)
-SDs <- c(rep(r.sd,dim(fishtotal.sepu)[2]), rep(i.sd,dim(fishtotal.sepu)[2]), F.sd,obs.error.sd)
+Names <- c(paste0("r",c(1:(dim(fishtotal.sepu)[2]))), paste0("i",c(1:(dim(fishtotal.sepu)[2]))), 'F', "nb.k")
+Means <- c(rep(r.mean,dim(fishtotal.sepu)[2]), rep(i.mean,dim(fishtotal.sepu)[2]), F.mean,nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.sepu)[2]), rep(i.sd,dim(fishtotal.sepu)[2]), F.sd,nb.k.sd)
 Type <- c( c(rep("lognormal",dim(fishtotal.sepu)[2]),rep("lognormal",dim(fishtotal.sepu)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and  error
-
 Prior.p.a.sepu <- list(Names,Means,SDs,Type)
 names(Prior.p.a.sepu) <- c('Names','Means','SDs','Type')
 
 # P
-Names <- c(paste0("r",c(1:(dim(fishtotal.sepu)[2]))), 'F','obs.error')
-Means <- c(rep(r.mean,dim(fishtotal.sepu)[2]), F.mean, obs.error.mean)
-SDs <- c(rep(r.sd,dim(fishtotal.sepu)[2]),  F.sd, obs.error.sd)
+Names <- c(paste0("r",c(1:(dim(fishtotal.sepu)[2]))), 'F','nb.k')
+Means <- c(rep(r.mean,dim(fishtotal.sepu)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.sepu)[2]),  F.sd, nb.k.sd)
 Type <- c( c(rep("lognormal",dim(fishtotal.sepu)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and  error
-
 Prior.p.sepu <- list(Names,Means,SDs,Type)
 names(Prior.p.sepu) <- c('Names','Means','SDs','Type')
 
 #A
-Names <- c( paste0("i",c(1:(dim(fishtotal.sepu)[2]))), 'F','obs.error')
-Means <- c( rep(i.mean,dim(fishtotal.sepu)[2]), F.mean, obs.error.mean)
-SDs <- c(rep(i.sd,dim(fishtotal.sepu)[2]), F.sd, obs.error.sd)
+Names <- c( paste0("i",c(1:(dim(fishtotal.sepu)[2]))), 'F','nb.k')
+Means <- c( rep(i.mean,dim(fishtotal.sepu)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(i.sd,dim(fishtotal.sepu)[2]), F.sd, nb.k.sd)
 Type <- c( rep("lognormal",dim(fishtotal.sepu)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and  error
-
 Prior.a.sepu <- list(Names,Means,SDs,Type)
 names(Prior.a.sepu) <- c('Names','Means','SDs','Type')
 ```
@@ -746,44 +826,31 @@ names(Prior.a.sepu) <- c('Names','Means','SDs','Type')
 # phase 2 priors
 
 # P & A 
-Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.sepu)[2]))), paste0("i",c(1:(dim(fishtotal.m.sepu)[2]))), 'F','obs.error')
-
-Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.sepu)[2]), rep(i.mean,dim(fishtotal.m.sepu)[2]), F.mean, obs.error.mean)
-
-SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.sepu)[2]), rep(i.sd,dim(fishtotal.m.sepu)[2]), F.sd,obs.error.sd)
-
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.sepu)[2]))), paste0("i",c(1:(dim(fishtotal.m.sepu)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.sepu)[2]), rep(i.mean,dim(fishtotal.m.sepu)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.sepu)[2]), rep(i.sd,dim(fishtotal.m.sepu)[2]), F.sd,nb.k.sd)
 Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.sepu)[2]),rep("lognormal",dim(fishtotal.m.sepu)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
-
 Prior.p.a.sepu.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
 names(Prior.p.a.sepu.m) <- c('Names','Means','SDs','Type')
 
 
 # P  
-Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.sepu)[2]))),  'F','obs.error')
-
-Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.sepu)[2]),  F.mean, obs.error.mean)
-
-SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.sepu)[2]), F.sd,obs.error.sd)
-
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.sepu)[2]))),  'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.sepu)[2]),  F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.sepu)[2]), F.sd,nb.k.sd)
 Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.sepu)[2]),"lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
-
 Prior.p.sepu.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
 names(Prior.p.sepu.m) <- c('Names','Means','SDs','Type')
 
 # A 
-Names.mitigation <- c( paste0("i",c(1:(dim(fishtotal.m.sepu)[2]))), 'F','obs.error')
-
-Means.mitigation <- c(rep(i.mean,dim(fishtotal.m.sepu)[2]), F.mean, obs.error.mean)
-
-SDs.mitigation <- c( rep(i.sd,dim(fishtotal.m.sepu)[2]), F.sd,obs.error.sd)
-
+Names.mitigation <- c( paste0("i",c(1:(dim(fishtotal.m.sepu)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(i.mean,dim(fishtotal.m.sepu)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c( rep(i.sd,dim(fishtotal.m.sepu)[2]), F.sd,nb.k.sd)
 Type.mitigation <- c( rep("lognormal",dim(fishtotal.m.sepu)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
-
 Prior.a.sepu.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
 names(Prior.a.sepu.m) <- c('Names','Means','SDs','Type')
 ```
 
-#!!!!!!!!!!!!!!!! Need to add scenario specific priors
 
 ### Kelp Bass
 ```{r}
@@ -796,33 +863,62 @@ i.mean <- log(0.01) #immigration
 i.sd <- 0.1
 F.mean <- log(0.12) # fishing
 F.sd <- 0.1
-error.mean = 2 # process error shape
-error.sd = 0.025 # process error scale
+nb.k.mean <- log(1) #negative binomial overdisperison
+nb.k.sd <- 0.1
+# error.mean = 2 # process error shape
+# error.sd = 0.025 # process error scale
 
-Names <- c(paste0("r",c(1:(dim(fishtotal.pacl)[2]))), paste0("i",c(1:(dim(fishtotal.pacl)[2]))), 'F')
+# P & A
+Names <- c(paste0("r",c(1:(dim(fishtotal.pacl)[2]))), paste0("i",c(1:(dim(fishtotal.pacl)[2]))), 'F','nb.k')
+Means <- c(rep(r.mean,dim(fishtotal.pacl)[2]), rep(i.mean,dim(fishtotal.pacl)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.pacl)[2]), rep(i.sd,dim(fishtotal.pacl)[2]), F.sd, nb.k.sd)
+Type <- c( c(rep("lognormal",dim(fishtotal.pacl)[2]),rep("lognormal",dim(fishtotal.pacl)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.a.pacl <- list(Names,Means,SDs,Type)
+names(Prior.p.a.pacl) <- c('Names','Means','SDs','Type')
 
-Means <- c(rep(r.mean,dim(fishtotal.pacl)[2]), rep(i.mean,dim(fishtotal.pacl)[2]), F.mean)
+# P 
+Names <- c(paste0("r",c(1:(dim(fishtotal.pacl)[2]))),  'F','nb.k')
+Means <- c(rep(r.mean,dim(fishtotal.pacl)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.pacl)[2]),  F.sd, nb.k.sd)
+Type <- c( c(rep("lognormal",dim(fishtotal.pacl)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.pacl <- list(Names,Means,SDs,Type)
+names(Prior.p.pacl) <- c('Names','Means','SDs','Type')
 
-SDs <- c(rep(r.sd,dim(fishtotal.pacl)[2]), rep(i.sd,dim(fishtotal.pacl)[2]), F.sd)
-
-Type <- c( c(rep("lognormal",dim(fishtotal.pacl)[2]),rep("lognormal",dim(fishtotal.pacl)[2]), "lognormal")) #type for recruitment, immigration, fishing, and process error
-
-Prior.pacl <- list(Names,Means,SDs,Type)
-names(Prior.pacl) <- c('Names','Means','SDs','Type')
+# A
+Names <- c( paste0("i",c(1:(dim(fishtotal.pacl)[2]))), 'F','nb.k')
+Means <- c( rep(i.mean,dim(fishtotal.pacl)[2]), F.mean, nb.k.mean)
+SDs <- c( rep(i.sd,dim(fishtotal.pacl)[2]), F.sd, nb.k.sd)
+Type <- c( rep("lognormal",dim(fishtotal.pacl)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.a.pacl <- list(Names,Means,SDs,Type)
+names(Prior.a.pacl) <- c('Names','Means','SDs','Type')
 ```
 
 ```{r}
 # phase 2 priors
-Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pacl)[2]))), paste0("i",c(1:(dim(fishtotal.m.pacl)[2]))), 'F')
 
-Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pacl)[2]), rep(i.mean,dim(fishtotal.m.pacl)[2]), F.mean)
+# P & A
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pacl)[2]))), paste0("i",c(1:(dim(fishtotal.m.pacl)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pacl)[2]), rep(i.mean,dim(fishtotal.m.pacl)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pacl)[2]), rep(i.sd,dim(fishtotal.m.pacl)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.pacl)[2]),rep("lognormal",dim(fishtotal.m.pacl)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.a.pacl.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.p.a.pacl.m) <- c('Names','Means','SDs','Type')
 
-SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pacl)[2]), rep(i.sd,dim(fishtotal.m.pacl)[2]), F.sd)
+# P
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pacl)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pacl)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pacl)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( rep("lognormal",dim(fishtotal.m.pacl)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.p.pacl.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.p.pacl.m) <- c('Names','Means','SDs','Type')
 
-Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.pacl)[2]),rep("lognormal",dim(fishtotal.m.pacl)[2]), "lognormal")) #type for recruitment, immigration, fishing, and process error
-
-Prior.m.pacl <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
-names(Prior.m.pacl) <- c('Names','Means','SDs','Type')
+# A
+Names.mitigation <- c( paste0("i",c(1:(dim(fishtotal.m.pacl)[2]))), 'F','nb.k')
+Means.mitigation <- c( rep(i.mean,dim(fishtotal.m.pacl)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c( rep(i.sd,dim(fishtotal.m.pacl)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( rep("lognormal",dim(fishtotal.m.pacl)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.a.pacl.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.a.pacl.m) <- c('Names','Means','SDs','Type')
 
 ```
 
@@ -837,33 +933,62 @@ i.mean <- log(0.01) #immigration
 i.sd <- 0.1
 F.mean <- log(0.1) # fishing
 F.sd <- 0.1
-error.mean = 2 # process error shape
-error.sd = 0.025 # process error scale
+nb.k.mean <- log(1) #negative binomial overdisperison
+nb.k.sd <- 0.1
+# error.mean = 2 # process error shape
+# error.sd = 0.025 # process error scale
 
-Names <- c(paste0("r",c(1:(dim(fishtotal.pane)[2]))), paste0("i",c(1:(dim(fishtotal.pane)[2]))), 'F')
+# P & A
+Names <- c(paste0("r",c(1:(dim(fishtotal.pane)[2]))), paste0("i",c(1:(dim(fishtotal.pane)[2]))), 'F','nb.k')
+Means <- c(rep(r.mean,dim(fishtotal.pane)[2]), rep(i.mean,dim(fishtotal.pane)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.pane)[2]), rep(i.sd,dim(fishtotal.pane)[2]), F.sd, nb.k.sd)
+Type <- c( c(rep("lognormal",dim(fishtotal.pane)[2]),rep("lognormal",dim(fishtotal.pane)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.a.pane <- list(Names,Means,SDs,Type)
+names(Prior.p.a.pane) <- c('Names','Means','SDs','Type')
 
-Means <- c(rep(r.mean,dim(fishtotal.pane)[2]), rep(i.mean,dim(fishtotal.pane)[2]), F.mean)
+# P
+Names <- c(paste0("r",c(1:(dim(fishtotal.pane)[2]))), 'F','nb.k')
+Means <- c(rep(r.mean,dim(fishtotal.pane)[2]), F.mean, nb.k.mean)
+SDs <- c(rep(r.sd,dim(fishtotal.pane)[2]),  F.sd, nb.k.sd)
+Type <- c( c(rep("lognormal",dim(fishtotal.pane)[2]),"lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.pane <- list(Names,Means,SDs,Type)
+names(Prior.p.pane) <- c('Names','Means','SDs','Type')
 
-SDs <- c(rep(r.sd,dim(fishtotal.pane)[2]), rep(i.sd,dim(fishtotal.pane)[2]), F.sd)
-
-Type <- c( c(rep("lognormal",dim(fishtotal.pane)[2]),rep("lognormal",dim(fishtotal.pane)[2]), "lognormal")) #type for recruitment, immigration, fishing, and process error
-
-Prior.pane <- list(Names,Means,SDs,Type)
-names(Prior.pane) <- c('Names','Means','SDs','Type')
+# A
+Names <- c( paste0("i",c(1:(dim(fishtotal.pane)[2]))), 'F','nb.k')
+Means <- c(rep(i.mean,dim(fishtotal.pane)[2]), F.mean, nb.k.mean)
+SDs <- c( rep(i.sd,dim(fishtotal.pane)[2]), F.sd, nb.k.sd)
+Type <- c( rep("lognormal",dim(fishtotal.pane)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.a.pane <- list(Names,Means,SDs,Type)
+names(Prior.a.pane) <- c('Names','Means','SDs','Type')
 ```
 
 ```{r}
 # phase 2 priors
-Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pane)[2]))), paste0("i",c(1:(dim(fishtotal.m.pane)[2]))), 'F')
 
-Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pane)[2]), rep(i.mean,dim(fishtotal.m.pane)[2]), F.mean)
+# P & A
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pane)[2]))), paste0("i",c(1:(dim(fishtotal.m.pane)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pane)[2]), rep(i.mean,dim(fishtotal.m.pane)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pane)[2]), rep(i.sd,dim(fishtotal.m.pane)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.pane)[2]),rep("lognormal",dim(fishtotal.m.pane)[2]), "lognormal", "lognormal")) #type for recruitment, immigration, fishing, and process error
+Prior.p.a.pane.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.p.a.pane.m) <- c('Names','Means','SDs','Type')
 
-SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pane)[2]), rep(i.sd,dim(fishtotal.m.pane)[2]), F.sd)
+# P
+Names.mitigation <- c(paste0("r",c(1:(dim(fishtotal.m.pane)[2]))), 'F','nb.k')
+Means.mitigation <- c(rep(r.mean,dim(fishtotal.m.pane)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c(rep(r.sd,dim(fishtotal.m.pane)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( rep("lognormal",dim(fishtotal.m.pane)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.p.pane.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.p.pane.m) <- c('Names','Means','SDs','Type')
 
-Type.mitigation <- c( c(rep("lognormal",dim(fishtotal.m.pane)[2]),rep("lognormal",dim(fishtotal.m.pane)[2]), "lognormal")) #type for recruitment, immigration, fishing, and process error
-
-Prior.m.pane <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
-names(Prior.m.pane) <- c('Names','Means','SDs','Type')
+# A
+Names.mitigation <- c( paste0("i",c(1:(dim(fishtotal.m.pane)[2]))), 'F','nb.k')
+Means.mitigation <- c( rep(i.mean,dim(fishtotal.m.pane)[2]), F.mean, nb.k.mean)
+SDs.mitigation <- c( rep(i.sd,dim(fishtotal.m.pane)[2]), F.sd, nb.k.sd)
+Type.mitigation <- c( rep("lognormal",dim(fishtotal.m.pane)[2]), "lognormal", "lognormal") #type for recruitment, immigration, fishing, and process error
+Prior.a.pane.m <- list(Names.mitigation,Means.mitigation,SDs.mitigation,Type.mitigation)
+names(Prior.a.pane.m) <- c('Names','Means','SDs','Type')
 
 ```
 
@@ -876,37 +1001,37 @@ names(Prior.m.pane) <- c('Names','Means','SDs','Type')
 # Fit.p.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.a.sepu,'mc_str_ar_P_A_sepu.RData', burnin = FALSE)
 # Fit.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.a.sepu,'mc_str_ar_A_sepu.RData', burnin = FALSE, ipm.r = FALSE)
 # Fit.p.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.sepu,'mc_str_ar_P_sepu.RData', burnin = FALSE, ipm.i = FALSE)
-
-# Fit.p.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.a.sepu.m,'mc_str_ar_P_A_mitigation.RData', burnin = FALSE)
-# Fit.p.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.sepu.m,'mc_str_ar_P_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
-# Fit.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.a.sepu.m,'mc_str_ar_A_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
+# 
+# Fit.p.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.a.sepu.m,'mc_str_ar_P_A_sepu_mitigation.RData', burnin = FALSE)
+# Fit.p.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.sepu.m,'mc_str_ar_P_sepu_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
+# Fit.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.a.sepu.m,'mc_str_ar_A_sepu_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
 ### Kelp Bass
 ```{r}
-# Kelp Bass
-# Fit.p.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.pacl,'mc_str_ar_P_A_pacl.RData', burnin = FALSE)
-# Fit.p.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.pacl,'mc_str_ar_P_pacl.RData', burnin = FALSE,ipm.i = FALSE)
-# Fit.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.pacl,'mc_str_ar_A_pacl.RData', burnin = FALSE,ipm.r = FALSE)
-# 
-# Fit.p.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.m.pacl,'mc_str_ar_P_A_pacl_mitigation.RData', burnin = FALSE)
-# 
-# Fit.p.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.m.pacl,'mc_str_ar_P_pacl_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
-# 
-# Fit.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.m.pacl,'mc_str_ar_A_pacl_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
+
+# Fit.p.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.p.a.pacl,'mc_str_ar_P_A_pacl.RData', burnin = FALSE)
+# Fit.p.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.p.pacl,'mc_str_ar_P_pacl.RData', burnin = FALSE,ipm.i = FALSE)
+# Fit.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.a.pacl,'mc_str_ar_A_pacl.RData', burnin = FALSE,ipm.r = FALSE)
+# #
+# Fit.p.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.p.a.pacl.m,'mc_str_ar_P_A_pacl_mitigation.RData', burnin = FALSE)
+# #
+# Fit.p.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.p.pacl.m,'mc_str_ar_P_pacl_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
+# #
+# Fit.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.a.pacl.m,'mc_str_ar_A_pacl_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
 ### Barred Sandbass
 ```{r}
-# Fit.p.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.pane,'mc_str_ar_P_A_pane.RData', burnin = FALSE)
-# Fit.p.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.pane,'mc_str_ar_P_pane.RData', burnin = FALSE,ipm.i = FALSE)
-# Fit.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.pane,'mc_str_ar_A_pane.RData', burnin = FALSE,ipm.r = FALSE)
-# 
-# Fit.p.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.m.pane,'mc_str_ar_P_A_pane_mitigation.RData', burnin = FALSE)
-# 
-# Fit.p.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.m.pane,'mc_str_ar_P_pane_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
-# 
-# Fit.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.m.pane,'mc_str_ar_A_pane_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
+# Fit.p.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.p.a.pane,'mc_str_ar_P_A_pane.RData', burnin = FALSE)
+# Fit.p.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.p.pane,'mc_str_ar_P_pane.RData', burnin = FALSE,ipm.i = FALSE)
+# Fit.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.a.pane,'mc_str_ar_A_pane.RData', burnin = FALSE,ipm.r = FALSE)
+#
+# Fit.p.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.a.pane.m,'mc_str_ar_P_A_pane_mitigation.RData', burnin = FALSE)
+#
+# Fit.p.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.pane.m,'mc_str_ar_P_pane_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
+# #
+# Fit.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.a.pane,'mc_str_ar_A_pane_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
 # Call Rdata from files
@@ -988,7 +1113,6 @@ Post.fit.p.a.mitigation <- postproc.MCMC(Fit.p.a.sepu.m)
 Post.fit.p.mitigation <- postproc.MCMC(Fit.p.sepu.m)
 Post.fit.a.mitigation <- postproc.MCMC(Fit.a.sepu.m)
 
-
 ```
 
 ### Kelp Bass
@@ -1017,36 +1141,64 @@ Post.fit.a.pane.m <- postproc.MCMC(Fit.a.pane.m)
 
 ### California Sheepehad
 ```{r}
-ssipm.dic(postproc.MCMC = Post.fit.p.a.sepu)$DIC #1695.934
-ssipm.dic(postproc.MCMC = Post.fit.p.sepu)$DIC #2925.95
-ssipm.dic(postproc.MCMC = Post.fit.a.sepu)$DIC #1699.18
+ssipm.dic(postproc.MCMC = Post.fit.p.a.sepu)$DIC #6096.505
+ssipm.dic(postproc.MCMC = Post.fit.p.sepu)$DIC # 42091.53
+ssipm.dic(postproc.MCMC = Post.fit.a.sepu)$DIC #11195
 
-ssipm.dic(postproc.MCMC = Post.fit.p.a.mitigation)$DIC #999.1803
-ssipm.dic(postproc.MCMC = Post.fit.p.mitigation)$DIC #237.5383
-ssipm.dic(postproc.MCMC = Post.fit.a.mitigation)$DIC #626.6687
+ssipm.dic(postproc.MCMC = Post.fit.p.a.mitigation)$DIC # 6004.068
+ssipm.dic(postproc.MCMC = Post.fit.p.mitigation)$DIC # 11780.2
+ssipm.dic(postproc.MCMC = Post.fit.a.mitigation)$DIC # 9236.886
 ```
 
 ### Kelp Bass
 ```{r}
-ssipm.dic(postproc.MCMC = Post.fit.p.a.pacl)$DIC #2068.913
-ssipm.dic(postproc.MCMC = Post.fit.p.pacl)$DIC #4983.585
-ssipm.dic(postproc.MCMC = Post.fit.a.pacl)$DIC #1414.838
+ssipm.dic(postproc.MCMC = Post.fit.p.a.pacl)$DIC # 4159.849
+ssipm.dic(postproc.MCMC = Post.fit.p.pacl)$DIC # 31011.92
+ssipm.dic(postproc.MCMC = Post.fit.a.pacl)$DIC # 4595.92
 
-ssipm.dic(postproc.MCMC = Post.fit.p.a.pacl.m)$DIC #924.8508
-ssipm.dic(postproc.MCMC = Post.fit.p.pacl.m)$DIC #515.685
-ssipm.dic(postproc.MCMC = Post.fit.a.pacl.m)$DIC #-167.9727
+ssipm.dic(postproc.MCMC = Post.fit.p.a.pacl.m)$DIC # 3504.267
+ssipm.dic(postproc.MCMC = Post.fit.p.pacl.m)$DIC # 5107.235
+ssipm.dic(postproc.MCMC = Post.fit.a.pacl.m)$DIC # 3641.209
 ```
 
 ### Barred Sandbass
 ```{r}
-ssipm.dic(postproc.MCMC = Post.fit.p.a.pane)$DIC #1886.613
-ssipm.dic(postproc.MCMC = Post.fit.p.pane)$DIC #5206.86
-ssipm.dic(postproc.MCMC = Post.fit.a.pane)$DIC #2775.029
+ssipm.dic(postproc.MCMC = Post.fit.p.a.pane)$DIC # 4330.184
+ssipm.dic(postproc.MCMC = Post.fit.p.pane)$DIC # 35769.25
+ssipm.dic(postproc.MCMC = Post.fit.a.pane)$DIC # 6263.839
 
-ssipm.dic(postproc.MCMC = Post.fit.p.a.pane.m)$DIC #-226.6451
-ssipm.dic(postproc.MCMC = Post.fit.p.pane.m)$DIC #-252.9732
-ssipm.dic(postproc.MCMC = Post.fit.a.pane.m)$DIC #67.37176
+ssipm.dic(postproc.MCMC = Post.fit.p.a.pane.m)$DIC # 3962.039
+ssipm.dic(postproc.MCMC = Post.fit.p.pane.m)$DIC # 12151.83
+ssipm.dic(postproc.MCMC = Post.fit.a.pane.m)$DIC # 4890.307
 ```
+
+
+#Posterior predictive checks 
+```{r}
+#best California sheephead model
+sepu <- post.pred.check(Data = fishtotal.sepu,fix.param = fix.param.sepu, Post.fit = Post.fit.p.a.sepu, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+sepu.m <- post.pred.check(Data = fishtotal.m.sepu,fix.param = fix.param.m.sepu, Post.fit = Post.fit.p.a.mitigation, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+
+#best Kelp bass model
+pacl <- post.pred.check(Data = fishtotal.pacl,fix.param = fix.param.pacl, Post.fit = Post.fit.p.a.pacl, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+
+pacl.m <- post.pred.check(Data = fishtotal.m.pacl, fix.param = fix.param.m.pacl, Post.fit = Post.fit.p.a.pacl.m, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+
+
+#best Barred Sandbass model
+pane <- post.pred.check(Data = fishtotal.pane,fix.param = fix.param.pane, Post.fit = Post.fit.p.a.pane, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+
+
+pane.m <- post.pred.check(Data = fishtotal.m.pane,fix.param = fix.param.m.pane, Post.fit = Post.fit.p.a.pane.m, ipm.burnin = FALSE)
+# ggsave("post.pred.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+
+```
+
 
 # Plot results
 
@@ -1063,11 +1215,11 @@ trace.plot <- function(post.fit,ggtitle){ggplot()+
 
 posterior.plot <- function(data,post.fit,model,ggtitle){
   test <- data.frame(post.fit$Values) %>%
-  pivot_longer(cols = 1:(ncol(post.fit$Values)-1),
+  pivot_longer(cols = 1:(ncol(post.fit$Values)-2), # get only recruit and immigration variables
                 names_to = "var",
                 values_to = "posterior") %>%
   mutate(var = as.factor(var)) %>%
-  mutate(var = fct_relevel(var, c(paste0("r",c(1:(dim(data)[2]))), paste0("i",c(1:(dim(data)[2]))), 'F')))
+  mutate(var = fct_relevel(var, c(paste0("r",c(1:(dim(data)[2]))), paste0("i",c(1:(dim(data)[2]))), 'F', "nb.k")))
   
   if(model == "PA"){
 p <-   data.frame(str_split_fixed(test$var,pattern = '', n = 2)) %>%  #split names to individual components
@@ -1081,7 +1233,8 @@ p <-   data.frame(str_split_fixed(test$var,pattern = '', n = 2)) %>%  #split nam
   # filter(variable == "Immigrant") %>% # Use only one if testing just recruitment vs just immigration
     mutate(year = fct_relevel(year, paste(c(1:23)))) %>%
   ggplot( )+
-  geom_violin(aes( y = posterior, x = year , color = variable, fill = variable), alpha = 0.5)+
+  geom_violin(aes( y = posterior *10000, x = year , color = variable, fill = variable), alpha = 0.5)+ #transform from per m2 to hectare
+  labs(y = "individals per hectare")+
   # facet_grid(rows = vars(variable), scales = "free_y")+
   # scale_fill_manual(values = c( "#F8766D","#00BFC4"))+
   # scale_color_manual(values = c("#F8766D","#00BFC4"))+
@@ -1091,7 +1244,8 @@ p <-   data.frame(str_split_fixed(test$var,pattern = '', n = 2)) %>%  #split nam
     # geom_vline(xintercept = c(9.5,20.5), color = "red")+
     theme_bw()+
     theme(axis.title.x = element_blank(),
-          axis.text = element_text(size = 15),strip.text = element_text(size = 15),axis.title.y = element_blank())
+          axis.text = element_text(size = 15),strip.text = element_text(size = 15),
+          axis.title = element_text(size = 15))
   }
   if(model == "P"){p <-   data.frame(str_split_fixed(test$var,pattern = '', n = 2)) %>%  #split names to individual components
     rename(variable = "X1",year = "X2") %>% # re-compose variable names from individual components
@@ -1144,13 +1298,14 @@ p <-   data.frame(str_split_fixed(test$var,pattern = '', n = 2)) %>%  #split nam
 # p + annotate("rect", xmin = 14.5,xmax = 17.5,ymin = -Inf, ymax = Inf, fill = "red", alpha = 0.2)+ #add box around blob
 # geom_text()
 
-f <- data.frame(test %>% select("F")) %>% 
-  pivot_longer(cols = "F",names_to = "var",values_to = "posterior") %>% 
+f <- data.frame(test %>% select("F","nb.k")) %>% 
+  pivot_longer(cols = c("F","nb.k"),names_to = "var",values_to = "posterior") %>% 
   ggplot(aes(x = var, y = posterior))+
   geom_violin( fill = "lavender")+
-  # facet_wrap(~var)+
+  facet_wrap(~var, scales = "free")+
   theme_bw()+
-  theme(axis.title.x = element_blank(),axis.text = element_text(size = 15),strip.text = element_text(size = 15))
+  theme(axis.title.x = element_blank(),axis.text = element_text(size = 15),strip.text = element_text(size = 15),axis.title = element_text(size = 15),
+        strip.text.x = element_blank())
   # stat_summary(fun = "median",
   #              geom = "text")
 
@@ -1188,10 +1343,10 @@ tipm <- sizedist %>% select(c(1:ncol(sizedist))) %>% #IPM with data fitting
   group_by(year)
 
 plot <- ggplot()+
-  geom_line(data = tfish, aes(x = size, y = density), color = "black", linewidth = 0.3) +
-  geom_line(data = tipm, aes(x = size, y = N), color = "red")+
+  geom_line(data = tfish, aes(x = size, y = density*10000), color = "black", linewidth = 0.4) +
+  geom_line(data = tipm, aes(x = size, y = N*10000), color = "red")+
   facet_wrap(~year, scales = "free_y") +
-  scale_y_continuous("survey density", labels = scales::label_comma()) +
+  scale_y_continuous("Individual per hectare", labels = scales::label_comma()) +
     theme_bw()+
   lims(x = c(0,80))+
   labs(x = "Length (cm)")+
@@ -1209,48 +1364,48 @@ return(plot)
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.sepu, "p.a.sepu")
-ggsave("trace.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.sepu,"a.sepu")
-ggsave("trace.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.sepu,"p.sepu")
-ggsave("trace.p.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #mitigation reef
 trace.plot(Post.fit.p.a.mitigation, "p.a.sepu.m")
-ggsave("trace.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.mitigation,"a.sepu.m")
-ggsave("trace.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.mitigation,"p.sepu.m")
-ggsave("trace.p.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 # Posterior Plot - Best model
 posterior.plot(fishtotal.sepu, Post.fit.p.a.sepu, model = "PA", ggtitle = "p.a.sepu")
-ggsave("posterior.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("posterior.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 # posterior.plot(fishtotal.m.sepu, Post.fit.p.a.mitigation, model = "PA", ggtitle = "p.a.sepu.m")
-posterior.plot(fishtotal.m.sepu, Post.fit.p.mitigation, model = "P", ggtitle = "p.sepu.m")
-ggsave("posterior.p.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+posterior.plot(fishtotal.m.sepu, Post.fit.p.a.mitigation, model = "PA", ggtitle = "p.a.sepu.m")
+# ggsave("posterior.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 # posterior.plot(fishtotal.m.sepu, Post.fit.a.mitigation, model = "A", ggtitle = "a.sepu.m")
 
 #experimental reef
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.p.a.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.sepu")
-ggsave("density.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.p.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.sepu")
-ggsave("density.p.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.a.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.sepu")
-ggsave("density.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #mitigation reef
 density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.p.a.mitigation, fix.param = fix.param.m.sepu, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.sepu.m")
-ggsave("density.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.p.mitigation, fix.param = fix.param.m.sepu, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.sepu.m")
-ggsave("density.p.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.a.mitigation, fix.param = fix.param.m.sepu, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.sepu.m")
-ggsave("density.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 ```
 
@@ -1258,110 +1413,112 @@ ggsave("density.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.pacl, "p.a.pacl")
-ggsave("trace.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.pacl,"a.pacl")
-ggsave("trace.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.pacl,"p.pacl")
-ggsave("trace.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 trace.plot(Post.fit.p.a.pacl.m, "p.a.pacl.m")
-ggsave("trace.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.pacl.m,"a.pacl.m")
-ggsave("trace.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.pacl.m,"p.pacl.m")
-ggsave("trace.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 # Posterior Plot - Best model
-posterior.plot(fishtotal.pacl, Post.fit.a.pacl, model = "A", ggtitle = "a.pacl")
-ggsave("posterior.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+posterior.plot(fishtotal.pacl, Post.fit.p.a.pacl, model = "PA", ggtitle = "p.a.pacl")
+# ggsave("posterior.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
-posterior.plot(fishtotal.m.pacl, Post.fit.a.pacl.m, model = "A", ggtitle = "a.pacl.m")
-ggsave("posterior.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+posterior.plot(fishtotal.m.pacl, Post.fit.p.a.pacl.m, model = "PA", ggtitle = "p.a.pacl.m")
+# ggsave("posterior.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #density plot - experimental reef
 density.plot(data = fishtotal.pacl, post.fit = Post.fit.p.a.pacl, fix.param = fix.param.pacl, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pacl")
-ggsave("density.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.pacl, post.fit = Post.fit.p.pacl, fix.param = fix.param.pacl, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.pacl")
-ggsave("density.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.pacl, post.fit = Post.fit.a.pacl, fix.param = fix.param.pacl, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pacl")
-ggsave("density.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #mitigation reef
 density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.p.a.pacl.m, fix.param = fix.param.m.pacl, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pacl.m")
-ggsave("density.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.p.pacl.m, fix.param = fix.param.m.pacl, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.pacl.m")
-ggsave("density.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.a.pacl.m, fix.param = fix.param.m.pacl, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pacl.m")
-ggsave("density.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 ```
 
 ### Barred Sandbass
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.pane, "p.a.pane")
-ggsave("trace.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.pane,"a.pane")
-ggsave("trace.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.pane,"p.pane")
-ggsave("trace.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 trace.plot(Post.fit.p.a.pane.m, "p.a.pane.m")
-ggsave("trace.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.a.pane.m,"a.pane.m")
-ggsave("trace.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 trace.plot(Post.fit.p.pane.m,"p.pane.m")
-ggsave("trace.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 # Posterior Plot - Best model
 posterior.plot(fishtotal.pane, Post.fit.p.a.pane, model = "PA", ggtitle = "p.a.pane")
-ggsave("posterior.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("posterior.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
-posterior.plot(fishtotal.m.pane, Post.fit.p.pane.m, model = "P", ggtitle = "p.pame.m")
-ggsave("posterior.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+posterior.plot(fishtotal.m.pane, Post.fit.p.a.pane.m, model = "PA", ggtitle = "p.a.pane.m")
+# ggsave("posterior.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #density plot - experimental reef
 density.plot(data = fishtotal.pane, post.fit = Post.fit.p.a.pane, fix.param = fix.param.pane, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pane")
-ggsave("density.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.pane, post.fit = Post.fit.p.pane, fix.param = fix.param.pane, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.pane")
-ggsave("density.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.pane, post.fit = Post.fit.a.pane, fix.param = fix.param.pane, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pane")
-ggsave("density.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 #mitigation reef
 density.plot(data = fishtotal.m.pane, post.fit = Post.fit.p.a.pane.m, fix.param = fix.param.m.pane, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pane.m")
-ggsave("density.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.pane, post.fit = Post.fit.p.pane.m, fix.param = fix.param.m.pane, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.pane.m")
-ggsave("density.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 
 density.plot(data = fishtotal.m.pane, post.fit = Post.fit.a.pane.m, fix.param = fix.param.m.pane, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pane.m")
-ggsave("density.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("density.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
 ```
 
 
 
-#Posterior predictive checks (still in progress)
+## Summary of posteriors (individuals per hectare)
 ```{r}
-#best California sheephead model
-sepu <- post.pred.check(Data = fishtotal.sepu,fix.param = fix.param.sepu, Post.fit = Post.fit.p.a.sepu, ipm.burnin = FALSE)
-sepu.m <- post.pred.check(Data = fishtotal.m.sepu,fix.param = fix.param.m.sepu, Post.fit = Post.fit.p.mitigation, ipm.burnin = FALSE, ipm.i = FALSE)
+#immigration 
+summary(c(sapply(data.frame(Post.fit.p.a.pane$Values[,c(24:46)])*10000, median)))
+summary(c(sapply(data.frame(Post.fit.p.a.pane.m$Values[,c(15:28)])*10000, median)))
 
-#best Kelp bass model
-pacl <- post.pred.check(Data = fishtotal.pacl,fix.param = fix.param.pacl, Post.fit = Post.fit.a.pacl, ipm.burnin = FALSE, ipm.r = FALSE)
-pacl.m <- post.pred.check(Data = fishtotal.m.pacl, fix.param = fix.param.m.pacl, Post.fit = Post.fit.a.pacl, ipm.burnin = FALSE, ipm.r = FALSE)
+#Recruitment
+summary(c(sapply(data.frame(Post.fit.p.a.pane$Values[,c(1:23)])*10000, median)))
+summary(c(sapply(data.frame(Post.fit.p.a.pane.m$Values[,c(1:14)])*10000, median)))
 
-#best Barred Sandbass model
-pane <- post.pred.check(Data = fishtotal.pane,fix.param = fix.param.pane, Post.fit = Post.fit.p.a.pane, ipm.burnin = FALSE)
-pane.m <- post.pred.check(Data = fishtotal.m.pane,fix.param = fix.param.m.pane, Post.fit = Post.fit.p.pane.m, ipm.burnin = FALSE, ipm.i = FALSE)
+#Fishing mortality
+median(Post.fit.p.a.pane$Values[,47]) 
+median(Post.fit.p.a.pane.m$Values[,29])
 
+#Dispersion
+median(Post.fit.p.a.pane$Values[,48]) 
+median(Post.fit.p.a.pane.m$Values[,30])
 ```
-
 
 
 ## Plots
@@ -1373,9 +1530,32 @@ songs %>%
          transtype_strata %in% c("BOTTOM",NA),
          species_code == "SEPU") %>%
   pivot_wider(names_from = total_length, values_from = count) %>% mutate(count = 1) %>% summarise(transect = sum(count), .by = c(year,reef_code,phase_built_code)) %>% ggplot()+
-  geom_col(aes(x = year, y = transect, fill = phase_built_code), position = position_dodge())+
-  scale_fill_manual(labels = c("Experimental","Mitigation"), values = c("blue","red"))
+  geom_col(aes(x = year, y = transect, fill = phase_built_code), position = position_dodge(), color = "gray22", width = 0.8)+
+  scale_fill_viridis_d()+
+  # facet_wrap(~phase_built_code)+
+  labs(fill = "Reef", y = "Transect (n)")+
+  theme_bw()
+  # scale_fill_manual(labels = c("Experimental","Mitigation"), values = c("blue","red"))
 ```
+
+### Number of fish observed
+```{r}
+songs %>% 
+  filter(phase_built_code %in% c("E", "M", "NA"),
+         transtype_strata %in% c("BOTTOM",NA),
+         species_code %in% c("SEPU","PACL","PANE")) %>%
+  uncount(count) %>% 
+  mutate(n = 1) %>% 
+  summarise(count = sum(n), .by = c(year,phase_built_code, species_code)) %>% 
+  ggplot()+
+  geom_col(aes(x = year, y = count, group = species_code, fill = species_code), position = position_dodge(), color = "black", width = 0.8)+
+  facet_wrap(~phase_built_code)+
+  scale_fill_viridis_d()+
+  geom_hline(yintercept = 100, linetype = "dashed")+
+  labs(fill = "Species")+
+  theme_bw()
+```
+
 
 #### TEST size distribution
 ```{r}
@@ -1393,18 +1573,18 @@ songs %>%
 # Type <- c(rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment, immigration, fishing, and process error
 
 ## postfit.a_p
-Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
-Means <- c(unname( sapply(data.frame(Post.fit_p_a$Values[,1:47]), median)))
-SDs <- c(rep(r.sd,dim(fishtotal)[2]), rep(i.sd,dim(fishtotal)[2]), F.sd)
-Type <- c(rep('lognormal',dim(fishtotal)[2]), rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment, immigration, fishing, and process error
-
-Prior <- list(Names,Means,SDs,Type)
-names(Prior) <- c('Names','Means','SDs','Type')
-
-
-c(fix.param,Prior)
-  M = fix.param$MCMClen
-  Chains = fix.param$MCMCchains
+# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
+# Means <- c(unname( sapply(data.frame(Post.fit_p_a$Values[,1:47]), median)))
+# SDs <- c(rep(r.sd,dim(fishtotal)[2]), rep(i.sd,dim(fishtotal)[2]), F.sd)
+# Type <- c(rep('lognormal',dim(fishtotal)[2]), rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment, immigration, fishing, and process error
+# 
+# Prior <- list(Names,Means,SDs,Type)
+# names(Prior) <- c('Names','Means','SDs','Type')
+# 
+# 
+# c(fix.param,Prior)
+#   M = fix.param$MCMClen
+#   Chains = fix.param$MCMCchains
 
 ######-------Immigration ipm--------########
 # Names.im <- c(paste0("r",c(1:(dim(fishtotal)[2]))),paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
@@ -1485,46 +1665,46 @@ c(fix.param,Prior)
 # b <- data.frame(a$data) %>% select(x,y)
 
 ######-------Immigration--------########
-
-
-Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior.pane$Names)))
-Values[1,] <- exp(Prior.pane$Means)
-colnames(Values) <- Names
-test <- run.IPM(fix.param = fix.param.pane, cand.param =  Values, fishtotal.pane, burnin = FALSE)
-sizedist <- data.frame(test$N)
-
-#
-#
-y = as.character(c(2000:2022))
-t.sect <- data.frame( t(transect)) %>%
-  mutate(year = as.character(rownames(.)))
-# #### Survey density
-tfish <- fishtotal.pane %>% add_column(size = c(1:nrow(fishtotal.pane)), .before = '2000') %>%
-  pivot_longer(cols = c("2000":"2022"), names_to = "year",values_to = "count") %>%
-  left_join(., t.sect) %>%
-  mutate(density = count/t.transect.)
-
-tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
-  rename_all(~y) %>%  #rename columns to match year
-  add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
-  mutate(size = size*fix.param.sepu$dx) %>%
-  pivot_longer(cols = "2000":"2022",
-               names_to = "year",
-               values_to = "N") %>%
-  group_by(year)
-
-ggplot()+
-  geom_line(data = tipm, aes(x = size, y = N), color = "red")+
-  geom_line(data = tfish, aes(x = size, y = density, color = "Survey density"), linetype = "dashed") +
-  facet_wrap(~year, scales = "free_y") +
-  scale_y_continuous("survey density", labels = scales::label_comma()) +
-    theme_bw()+
-  lims(x = c(0,80))+
-  labs(x = "Length (cm)")+
-  ggtitle("Attraction & Production IPM fit to data")+
-  theme(legend.position = "none",
-        axis.text = element_text(size = 15),strip.text = element_text(size = 15),
-        title = element_text(size = 15))
+# 
+# 
+# Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior.pane$Names)))
+# Values[1,] <- exp(Prior.pane$Means)
+# colnames(Values) <- Names
+# test <- run.IPM(fix.param = fix.param.pane, cand.param =  Values, fishtotal.pane, burnin = FALSE)
+# sizedist <- data.frame(test$N)
+# 
+# #
+# #
+# y = as.character(c(2000:2022))
+# t.sect <- data.frame( t(transect)) %>%
+#   mutate(year = as.character(rownames(.)))
+# # #### Survey density
+# tfish <- fishtotal.pane %>% add_column(size = c(1:nrow(fishtotal.pane)), .before = '2000') %>%
+#   pivot_longer(cols = c("2000":"2022"), names_to = "year",values_to = "count") %>%
+#   left_join(., t.sect) %>%
+#   mutate(density = count/t.transect.)
+# 
+# tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
+#   rename_all(~y) %>%  #rename columns to match year
+#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
+#   mutate(size = size*fix.param.sepu$dx) %>%
+#   pivot_longer(cols = "2000":"2022",
+#                names_to = "year",
+#                values_to = "N") %>%
+#   group_by(year)
+# 
+# ggplot()+
+#   geom_line(data = tipm, aes(x = size, y = N), color = "red")+
+#   geom_line(data = tfish, aes(x = size, y = density, color = "Survey density"), linetype = "dashed") +
+#   facet_wrap(~year, scales = "free_y") +
+#   scale_y_continuous("survey density", labels = scales::label_comma()) +
+#     theme_bw()+
+#   lims(x = c(0,80))+
+#   labs(x = "Length (cm)")+
+#   ggtitle("Attraction & Production IPM fit to data")+
+#   theme(legend.position = "none",
+#         axis.text = element_text(size = 15),strip.text = element_text(size = 15),
+#         title = element_text(size = 15))
 
 
 ######--------- compare ipm im size distr to data
@@ -1532,25 +1712,144 @@ ggplot()+
 # reef <- data.frame(reef_code= c("WNR","BK","SMK"))
 # lengthxreef <- cross_join(total_length,reef)
 # 
-# im.data <- songs %>%
-#   filter( species_code == "SEPU",
-#           reef_code %in% c("BK","SMK"),
-#          transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year, values_from = tot_count) %>%
-#   full_join(.,lengthxreef) %>%
-#   mutate(species_code = "SEPU") %>%
-#   replace(is.na(.),0) %>%
-#   pivot_longer(cols = c('2000':'2022'),
-#                names_to = "year",values_to = "count") %>%
-#   uncount(count)
-# 
-# ggplot()+
-#   geom_line(test.ivec, mapping = aes(x = size, y = density),color = "black")+
-#   geom_density(im.data, mapping = aes(x = total_length,color = reef_code))+
-#   facet_wrap(~year) +
-#   lims(x = c(0,70))+theme_bw()
+
+transect.smk <- songs %>% 
+  filter(species_code == "SEPU") %>% 
+  filter(transtype_strata %in% c("BOTTOM",NA)) %>% #Using Bottom survey and Phase 1 reef
+  drop_na(transect_code,total_length) %>% 
+  pivot_wider(names_from = total_length,
+              values_from = count) %>% 
+  summarise(tot_transect = length(transect_code),
+            .by = c(year, reef_code, total_area_sampled)) %>% 
+  filter(reef_code %in% 'SMK') %>%  #Use only data from one site
+  mutate(tot_area = total_area_sampled*tot_transect) %>% 
+  summarise(tot_area = sum(tot_area),
+            .by = c(year,reef_code)) %>% 
+  select(c(year,tot_area)) %>% 
+  pivot_wider(names_from = year,
+              values_from = tot_area) %>% 
+  add_column("2008" = NA, "2007" = NA) %>%
+  relocate(c("2007","2008"), .after = "2006")%>% # make longer data frame
+  pivot_longer(cols = c(1:23), names_to = "year", values_to = "area_surveyed") %>% 
+  mutate(year = as.factor(year),
+         "reef_code" ='SMK')
+
+
+transect.wnr <- songs %>% 
+  filter(species_code == "SEPU") %>% 
+  filter(transtype_strata %in% c("BOTTOM",NA)) %>% #Using Bottom survey and Phase 1 reef
+  drop_na(transect_code,total_length) %>% 
+  pivot_wider(names_from = total_length,
+              values_from = count) %>% 
+  summarise(tot_transect = length(transect_code),
+            .by = c(year, reef_code, total_area_sampled)) %>% 
+  filter(reef_code %in% 'WNR') %>%  #Use only data from one site
+  mutate(tot_area = total_area_sampled*tot_transect) %>% 
+  summarise(tot_area = sum(tot_area),
+            .by = c(year,reef_code)) %>% 
+  select(c(year,tot_area)) %>% 
+  pivot_wider(names_from = year,
+              values_from = tot_area) %>% 
+  add_column("2008" = NA, "2007" = NA) %>%
+  relocate(c("2007","2008"), .after = "2006")%>%  #make longer data frame
+  pivot_longer(cols = c(1:23), names_to = "year", values_to = "area_surveyed") %>% 
+  mutate(year = as.factor(year),
+         "reef_code" ='WNR')
+
+
+transect.reefs <- bind_rows(transect.wnr,transect.smk) %>% mutate(reef_code = as.factor(reef_code))
+
+#SMK fish density of non-recruits
+im.data <- songs %>%
+  filter( species_code %in% c("SEPU","PACL","PANE"),
+          reef_code %in% c("SMK",'WNR'),
+         transtype_strata %in% c("BOTTOM",NA),
+         phase_built_code%in% c("N","E","M")) %>%
+  summarise(tot_count = sum(count), .by = c(year, reef_code, species_code,phase_built_code, total_length )) %>%
+  drop_na(total_length) %>%
+  pivot_wider(names_from = year, values_from = tot_count) %>%
+  # full_join(.,lengthxreef) %>%
+  # mutate(species_code = "SEPU") %>%
+  replace(is.na(.),0) %>%
+  pivot_longer(cols = c('2000':'2022'),
+               names_to = "year",values_to = "count") %>%
+  mutate(year = as.factor(year)) %>% 
+  left_join(.,transect.reefs) %>% 
+  filter(total_length>8) %>% # Only juvenile and adult fishes
+  summarise(sum = sum(count), .by = c(year,reef_code,species_code,phase_built_code,area_surveyed)) %>% 
+  mutate(density = sum/area_surveyed)
+
+#actualy values 
+im.data %>% 
+  # filter(total_length>8) %>%  summarise(sum = sum(density), .by = c(year,species_code)) %>% 
+  ggplot() + 
+  # geom_line(aes(x = year, y = density*10000, group = species_code, color = species_code))+
+  # geom_point(aes(x = year, y = density*10000, group = species_code, color = species_code), fill = "black")+
+  geom_col(aes(x = year, y = density*10000, group = species_code, fill = species_code),color = "grey20", position = "dodge", width = 0.7 )+
+  theme_bw()+
+  scale_fill_viridis_d()+
+  labs(y = "Individuals per hectare", x = element_blank(), fill = "Species")+
+  facet_wrap(~phase_built_code)+ 
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 10))
+  
+################## Median
+im.mean <- songs %>%
+  filter( species_code %in% c("SEPU","PACL","PANE"),
+          reef_code %in% c("SMK",'WNR'),
+         transtype_strata %in% c("BOTTOM",NA),
+         phase_built_code%in% c("N","E","M")) %>%
+  summarise(tot_count = sum(count), .by = c(year, reef_code,phase_built_code, species_code, total_length )) %>%
+  drop_na(total_length) %>%
+  pivot_wider(names_from = year, values_from = tot_count) %>%
+  # full_join(.,lengthxreef) %>%
+  # mutate(species_code = "SEPU") %>%
+  replace(is.na(.),0) %>%
+  pivot_longer(cols = c('2000':'2022'),
+               names_to = "year",values_to = "count") %>%
+  # mutate(year = as.factor(year)) %>%
+  left_join(.,transect.reefs) %>%
+  # filter(total_length>8) %>% # Only juvenile and adult fishes
+  uncount(count) %>%
+  mutate(tally = 1) %>% 
+  summarise(mean = mean(total_length),
+            sd = sd(total_length),
+            n = sum(tally),
+            .by = c(reef_code,phase_built_code,species_code,year)) %>% 
+  mutate(up_cl =mean+ (sd/sqrt(n)),
+         low_cl = mean - (sd/sqrt(n))) %>% 
+  mutate(year = as.factor(year))
+  
+
+im.mean %>%  ggplot() + geom_line(aes(x = year, y = mean, group = species_code, color = species_code) )+ 
+  geom_point(aes(x = year, y = mean, group = species_code, color = species_code), alpha = 0.6 )+
+  geom_ribbon(aes(x = year, ymax = up_cl,ymin = low_cl,group =species_code,fill = species_code),alpha = 0.2)+
+  theme_bw()+
+  scale_color_viridis_d( option = "H")+
+  scale_fill_viridis_d()+
+  labs(y = "Survey Mean size (cm)", x = element_blank(), fill = "Species", color = "Species")+
+  facet_wrap(~phase_built_code)+
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 10))
+```
+ 
+```{r}
+#TEST Check recruitment density
+
+#PACL phase1
+fishtotal.pacl[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
+#phase2
+fishtotal.m.pacl[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
+
+#SEPU phase1
+fishtotal.sepu[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
+#phase2
+fishtotal.m.sepu[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
+
+#PANE phase 1
+fishtotal.pane[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year)
+# left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
+#phase2
+fishtotal.m.pane[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) 
+# left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
 ```
  
  
