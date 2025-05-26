@@ -11,7 +11,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   params = c(fix.param,cand.param)
   
   # Create the kernel
-  # K = kernmat(params,timestep=1) #####!!!!!!!!!!!!!!!!! moved so kernal changes with year
+  # K = kernmat(params,timestep=1) #moved so kernal changes with year - see line 80
   
   # Initialize the model:
   datayears = dim(Data)[2] # how many years of observations
@@ -23,9 +23,10 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
     # Run the model for the burnin period
     for (t in 2:params$burnin){
       
-      # Create the kernel ############!!!!! TEST regulation customization
-      if(is.null( params$regulation)){ ############!!!!! TEST regulation customization
-        K = kernmat(params,timestep=1) } else{ ####!!!!!! Keep normal if no regulation change
+      # Create the kernel 
+      if(is.null( params$regulation)){ # regulation customization
+        K = kernmat(params,timestep=1) } else{ # Keep annual fishing selectivity if no regulation change
+          #if regulation changes during sampling period
         params$F.sel = get("params") [[paste0("F.sel",params$regulation[[1]])]] # Fishing selectivity uses value from first year
         K = kernmat(params,timestep=1) #if there is, regulation based on characterization
       }
@@ -49,7 +50,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
   } #end if run burning
 
   # Now run for the time period when we have data
-  N = matrix(0,nrow=params$meshmax,ncol=datayears) ####!!!!!!!!!1 removed +1 from data years
+  N = matrix(0,nrow=params$meshmax,ncol=datayears) 
   
   #initializing the model
   if(burnin == TRUE){ # if using a burnin period, begin with burnin distribution
@@ -101,11 +102,6 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
             N[,t] = K %*% N[,t-1] * params$dx
           }
     
-    if(any(is.nan( N[,t]))){ #######!!!!!!!!!!!!!!!!! testing
-      browser()
-    }
-    
-    
     N[ N[,t] <= 1e-323, t ] = 1e-323 #Prevent the generation of Inf values
     
     # apply particle filter & calculate likelihood
@@ -114,25 +110,8 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       Lt = rep(NA,params$Q)
       
       for (q in 1:params$Q){
-        ###!!!!!!!!! Temporary removed due to issues with calculating process error, use fixed error
-        # rlm <- N[,t] # arithmetic expected value
-        # rls <- params$error # arithmetic variance
-        # rlm[ rlm <= 1e-323] = 1e-323 #Prevent the generation of Inf values
-        # meanlog <- log(rlm^2 / sqrt(rls^2 +rlm^2)) # calculate lognormal expected vale
-        # if(any(is.infinite(meanlog))){
-        # meanlog[meanlog == -Inf] = min(meanlog[meanlog != -Inf])
-        # }#end if infinite meanlog
-        # sdlog <- sqrt(log(1 + (rls^2 /rlm^2))) #calculate lognormal sd
-        # if(any(is.infinite(sdlog))){
-        # sdlog[ sdlog == Inf] = max(sdlog[sdlog != Inf])
-        # } #end if infinite sdlog
-        # Nq[,q] = rlnorm(n=params$meshmax, meanlog=meanlog, sdlog = sdlog) # lognormal process error
         
         Nq[,q] = exp(rnorm(n=params$meshmax, mean= log(N[,t]), sd = params$error)) # lognormal process error
-  
-        if(any(is.na( Nq[,q]))){ #######!!!!!!!!!!!!!!!!! testing
-          browser()
-        }
         
         Nq[ Nq[,q] <= 1e-323,  ] = 1e-323 #Prevent the generation of Inf values
           Nq.temp = Nq[,q] * params$correction[[1,t]] # correction for differing survey area 
@@ -156,21 +135,6 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
           #!!! TEST NEGATIVE BINOMIAL
           Lt[q] = sum(dnbinom( x = Data.tmp, size = params$nb.k,  mu = Nq.temp, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
           
-          #!!! TEST GAMMA
-          # x = Data[[t]]/params$correction[[t]] # keep density but remove 0s # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # # x[ x == 0] = 1e-308 # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # shape = Nq[,q]^2/ params$obs.error # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # scale = params$obs.error/Nq[,q] # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # Lt[q] = sum(dgamma(x = x, shape = shape, scale = scale, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # Lt[q][ Lt[q] >= 1e+308] = 1e+308 #Prevent the generation of Inf values # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          
-          #!!! TEST lognormal
-          # x = Data[[t]]/params$correction[[t]] # keep density but remove 0s # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # x[ x == 0] = 1e-308 # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # meanlog = log(Nq[,q]^2 / sqrt(params$obs.error^2 +Nq[,q]^2)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # sdlog = sqrt(log(1 + (params$obs.error^2 /Nq[,q]^2))) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          # Lt[q] = sum(dlnorm(x = x, meanlog =  meanlog, sdlog = sdlog, log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-          
           warning("Minimial observation size not specified, likelihood calculated across all sizes")
         }
       }  
@@ -193,11 +157,7 @@ run.IPM <- function(fix.param,cand.param,Data, burnin = TRUE,
       # L[t-1] =  sum( dpois( x = Data.tmp[fix.param$ogive:length(Data)], lambda = N.tmp[fix.param$ogive:length(Data)], log = TRUE) ) #poisson
         
       L[t-1] =  sum(dnbinom(x = Data.tmp[fix.param$ogive:nrow(Data)], size = params$nb.k, mu = N.tmp[fix.param$ogive:nrow(Data)], log = TRUE)) # !!!!!!!!!!!!!!!!!!!!!!!! TESTING
-        
-      # if(any(is.nan(L[t-1]))){ ###!!!!!!!!!!!!!!!!!!!!!!!!! TESTING
-      #   browser()
-      # }
-      
+  
       } else {
         # L[t-1] =  sum( dpois( x = Data.tmp, lambda = N.tmp, log = TRUE) ) #poission likelihood
         

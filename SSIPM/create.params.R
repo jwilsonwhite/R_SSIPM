@@ -151,7 +151,7 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
     Ivec = NULL
     
     #minimum observable fish size
-    ogive <- 1
+    ogive <- 9
     
     # other model parameters
     burnin = 20 # how many years to initialize the model pre-data
