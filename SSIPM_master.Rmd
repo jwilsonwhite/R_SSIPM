@@ -30,8 +30,9 @@ library(patchwork)
 library(stringr)
 library(forcats)
 library(lubridate) 
+library(scales) #accessory to plotting ggplot
 # library(bbmle) # library for maximum likelihood calculation
-library(invgamma)#library for inverse gamma
+# library(invgamma)#library for inverse gamma
 # #library for parallel processing
 # library(doParallel)
 
@@ -213,6 +214,7 @@ fishtotal.sepu <- fishtotal.sepu %>%
   arrange(total_length) %>%  # re-order dataframe by numerical value
   dplyr::select(3:length(fishtotal.sepu)) %>% # choose only count of fish
   full_join(., data.frame( total_length = c(1:114))) %>%      # Match data length to fit IPM mesh size (equal to fix.param$meshmax)
+  arrange(total_length) %>% #make ascending order
   replace(is.na(.),0) %>% #add NA
   add_column("2008" = NA, "2007" = NA) %>%    # add years not surveyed to be continuous
   relocate(c("2007","2008"), .after = "2006") %>%
@@ -225,6 +227,7 @@ fishtotal.pacl <- fishtotal.pacl %>%
   arrange(total_length) %>%  # re-order dataframe by numerical value
   dplyr::select(3:length(fishtotal.pacl)) %>% # choose only count of fish
   full_join(., data.frame( total_length = c(1:140))) %>%  # Match data length to fit IPM mesh size (equal to fix.param$meshmax)
+  arrange(total_length) %>% #make ascending order
   replace(is.na(.),0) %>% #add NA
   add_column("2008" = NA, "2007" = NA) %>% # add years not surveyed to be continuous
   relocate(c("2007","2008"), .after = "2006") %>%
@@ -237,6 +240,7 @@ fishtotal.pane <- fishtotal.pane %>%
   arrange(total_length) %>%  # re-order dataframe by numerical value
   dplyr::select(3:length(fishtotal.pane)) %>% # choose only count of fish
   full_join(., data.frame( total_length = c(1:122))) %>%  # Match data length to fit IPM mesh size (equal to fix.param$meshmax)
+  arrange(total_length) %>% #make ascending order
   replace(is.na(.),0) %>% #add NA
   add_column("2008" = NA, "2007" = NA) %>%    # add years not surveyed to be continuous
   relocate(c("2007","2008"), .after = "2006") %>%
@@ -494,6 +498,7 @@ if(is.na(im.smk[1,i])){
 
 #name list
 names(Ivec) <- Ivec.name
+Ivec.sepu <- Ivec
 
 #add to fix.param
 fix.param.sepu <- c(fix.param.sepu,Ivec)
@@ -572,6 +577,7 @@ if(is.na(im.smk[1,i])){
 
 #name list
 names(Ivec) <- Ivec.name
+Ivec.pacl <- Ivec
 
 #add to fix.param
 fix.param.pacl <- c(fix.param.pacl,Ivec)
@@ -650,6 +656,7 @@ if(is.na(im.smk[1,i])){
 
 #name list
 names(Ivec) <- Ivec.name
+Ivec.pane <- Ivec
 
 #add to fix.param
 fix.param.pane <- c(fix.param.pane,Ivec)
@@ -710,6 +717,7 @@ I.size.param <- songs %>%
   summarise(mean = mean(.$mean),
             sd = mean(.$sd)) # average across all years
 
+#complimentary cdf
 I.size.fun.pacl <- 1-pnorm(q = fix.param.pacl$x, mean = I.size.param$mean, sd = I.size.param$sd) #cumulative distribution function
 
 fix.param.pacl$I.size <- I.size.fun.pacl
@@ -735,6 +743,7 @@ I.size.param <- songs %>%
   summarise(mean = mean(.$mean),
             sd = mean(.$sd)) # average across all years
 
+#complementary cdf, for 50%
 I.size.fun.pane <- (1-pnorm(q = fix.param.pane$x, mean = I.size.param$mean, sd = I.size.param$sd)*0.5)
 
 fix.param.pane$I.size <- I.size.fun.pane
@@ -962,13 +971,13 @@ names(Prior.a.pane.m) <- c('Names','Means','SDs','Type')
 ```{r}
 #California Sheephead
 
-# Fit.p.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.a.sepu,'mc_str_ar_P_A_sepu_noyoy.RData', burnin = FALSE)
-# Fit.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.a.sepu,'mc_str_ar_A_sepu_noyoy.RData', burnin = FALSE, ipm.r = FALSE)
-# Fit.p.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.sepu,'mc_str_ar_P_sepu_noyoy.RData', burnin = FALSE, ipm.i = FALSE)
+# Fit.p.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.a.sepu,'mc_str_ar_P_A_sepu.RData', burnin = FALSE)
+# Fit.a.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.a.sepu,'mc_str_ar_A_sepu.RData', burnin = FALSE, ipm.r = FALSE)
+# Fit.p.sepu <- fit.SSIPM.MCMC(fix.param.sepu,fishtotal.sepu,Prior.p.sepu,'mc_str_ar_P_sepu.RData', burnin = FALSE, ipm.i = FALSE)
 # 
-# Fit.p.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.a.sepu.m,'mc_str_ar_P_A_sepu_mitigation_noyoy.RData', burnin = FALSE)
-# Fit.p.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.sepu.m,'mc_str_ar_P_sepu_mitigation_noyoy.RData', burnin = FALSE, ipm.i = FALSE)
-# Fit.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.a.sepu.m,'mc_str_ar_A_sepu_mitigation_noyoy.RData', burnin = FALSE, ipm.r = FALSE)
+# Fit.p.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.a.sepu.m,'mc_str_ar_P_A_sepu_mitigation.RData', burnin = FALSE)
+# Fit.p.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.p.sepu.m,'mc_str_ar_P_sepu_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
+# Fit.a.sepu.m <- fit.SSIPM.MCMC(fix.param.m.sepu,fishtotal.m.sepu,Prior.a.sepu.m,'mc_str_ar_A_sepu_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
 ### Kelp Bass
@@ -977,11 +986,11 @@ names(Prior.a.pane.m) <- c('Names','Means','SDs','Type')
 # Fit.p.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.p.a.pacl,'mc_str_ar_P_A_pacl.RData', burnin = FALSE)
 # Fit.p.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.p.pacl,'mc_str_ar_P_pacl.RData', burnin = FALSE,ipm.i = FALSE)
 # Fit.a.pacl <- fit.SSIPM.MCMC(fix.param.pacl,fishtotal.pacl,Prior.a.pacl,'mc_str_ar_A_pacl.RData', burnin = FALSE,ipm.r = FALSE)
-# #
+# # #
 # Fit.p.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.p.a.pacl.m,'mc_str_ar_P_A_pacl_mitigation.RData', burnin = FALSE)
-# #
+# # #
 # Fit.p.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.p.pacl.m,'mc_str_ar_P_pacl_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
-# #
+# # #
 # Fit.a.pacl.m <- fit.SSIPM.MCMC(fix.param.m.pacl,fishtotal.m.pacl,Prior.a.pacl.m,'mc_str_ar_A_pacl_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
@@ -990,11 +999,11 @@ names(Prior.a.pane.m) <- c('Names','Means','SDs','Type')
 # Fit.p.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.p.a.pane,'mc_str_ar_P_A_pane.RData', burnin = FALSE)
 # Fit.p.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.p.pane,'mc_str_ar_P_pane.RData', burnin = FALSE,ipm.i = FALSE)
 # Fit.a.pane <- fit.SSIPM.MCMC(fix.param.pane,fishtotal.pane,Prior.a.pane,'mc_str_ar_A_pane.RData', burnin = FALSE,ipm.r = FALSE)
-#
-# Fit.p.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.a.pane.m,'mc_str_ar_P_A_pane_mitigation.RData', burnin = FALSE)
-#
-# Fit.p.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.pane.m,'mc_str_ar_P_pane_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
 # #
+# Fit.p.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.a.pane.m,'mc_str_ar_P_A_pane_mitigation.RData', burnin = FALSE)
+# #
+# Fit.p.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.p.pane.m,'mc_str_ar_P_pane_mitigation.RData', burnin = FALSE, ipm.i = FALSE)
+# # #
 # Fit.a.pane.m <- fit.SSIPM.MCMC(fix.param.m.pane,fishtotal.m.pane,Prior.a.pane,'mc_str_ar_A_pane_mitigation.RData', burnin = FALSE, ipm.r = FALSE)
 ```
 
@@ -1105,9 +1114,9 @@ Post.fit.a.pane.m <- postproc.MCMC(Fit.a.pane.m)
 
 ### California Sheepehad
 ```{r}
-ssipm.dic(postproc.MCMC = Post.fit.p.a.sepu)$DIC #6300.428
-ssipm.dic(postproc.MCMC = Post.fit.p.sepu)$DIC # 42128.89
-ssipm.dic(postproc.MCMC = Post.fit.a.sepu)$DIC #11285.53
+ssipm.dic(postproc.MCMC = Post.fit.p.a.sepu)$DIC #6300.428, noyoy: 5824.036
+ssipm.dic(postproc.MCMC = Post.fit.p.sepu)$DIC # 42128.89, noyoy: 41735.83
+ssipm.dic(postproc.MCMC = Post.fit.a.sepu)$DIC #11285.53, noyoy: 7751.491
 
 ssipm.dic(postproc.MCMC = Post.fit.p.a.mitigation)$DIC # 6199.066
 ssipm.dic(postproc.MCMC = Post.fit.p.mitigation)$DIC # 11774.85
@@ -1139,27 +1148,173 @@ ssipm.dic(postproc.MCMC = Post.fit.a.pane.m)$DIC # 4890.307
 
 #Posterior predictive checks 
 ```{r}
+#for ease of working, make a function for plotting the posterior predictive interval and the survey data
+ppc.plot <- function(samp.dist.quart,data.ipm){
+p <-   ggplot()+
+  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_95, ymax = upper_95), color = "skyblue2", linewidth = 2.5)+ #95% confidence Interval
+  geom_pointrange(data = samp.dist.quart, mapping = aes(x = size, y =mean,ymin = lower_50, ymax = upper_50), color = "skyblue4", linewidth = 3, alpha = 0.5)+ #50% confidence Interval
+  geom_point(data = samp.dist.quart, mapping = aes(x = size, y =mean),color = "darkblue", size = 3)+
+  geom_point(data.ipm %>% mutate(size = size.bin),
+  mapping = aes(x = size, y = density),color = "#9A32CD", size = 4, alpha = 0.5)+
+  theme_bw()+
+    # xlab("Size (cm)")+
+  theme(
+        axis.text.x = element_text(
+          # angle = 270, vjust = 0.5, hjust=1,
+                                   size = 15),
+        axis.text.y = element_text(size = 17))
+return(p)
+}
+```
+
+
+```{r}
 #best California sheephead model
+sepu.ppc.bins <- c("9 - 19","20 - 29","30 - 40","41 - 50","52 - 61","62 - 71","72 - 82","83 - 92","93 - 103","104 - 114")
+
+# Experimental Reefs
 sepu <- post.pred.check(Data = fishtotal.sepu,fix.param = fix.param.sepu, Post.fit = Post.fit.p.a.sepu, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+#year 21 - 2020
+sepu2020 <- ppc.plot(sepu$pp.interval.year21,sepu$data.year21)+labs(title = "a) California Sheephead experimental reef 2020")+scale_x_discrete(labels = sepu.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 22 - 2021
+sepu2021 <-ppc.plot(sepu$pp.interval.year22,sepu$data.year22)+labs(title = "b) California Sheephead experimental reef 2021")+scale_x_discrete(labels = sepu.ppc.bins)+
+  labs(y = "Density")+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 15),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 23 - 2022
+sepu2022 <-ppc.plot(sepu$pp.interval.year23,sepu$data.year23)+labs(title = "c) California Sheephead experimental reef 2022")+scale_x_discrete(labels = sepu.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+
+
+## Mitigation Reef
 sepu.m <- post.pred.check(Data = fishtotal.m.sepu,fix.param = fix.param.m.sepu, Post.fit = Post.fit.p.a.mitigation, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+#year 12 - 2020
+sepu2020.m <- ppc.plot(sepu.m$pp.interval.year12,sepu.m$data.year12)+labs(title = "d) California Sheephead mitigation reef 2020")+scale_x_discrete(labels = sepu.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 13 - 2021
+sepu2021.m <- ppc.plot(sepu.m$pp.interval.year13,sepu.m$data.year13)+labs(title = "e) California Sheephead mitigation reef 2021")+scale_x_discrete(labels = sepu.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 14 - 2022
+sepu2022.m <- ppc.plot(sepu.m$pp.interval.year14,sepu.m$data.year14)+labs(title = "f) California Sheephead mitigation reef 2022")+scale_x_discrete(labels = sepu.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
 
+(sepu2020+sepu2020.m)/(sepu2021+sepu2021.m)/(sepu2022+sepu2022.m+
+  plot_layout(axis_titles = "collect"))
+# ggsave("post.pred.p.a.sepu.pdf", width = 11, height = 10,units = "in",path = here("SSIPM_output","plots"))
+```
+
+
+```{r}
 #best Kelp bass model
+pacl.ppc.bins <- c("9 - 22","23 - 35","36 - 48","49 - 61","62 - 74","75 - 87", "88 - 100","101 - 113", "114 - 126", "127 - 140")
+
+#exoerimental reef
 pacl <- post.pred.check(Data = fishtotal.pacl,fix.param = fix.param.pacl, Post.fit = Post.fit.p.a.pacl, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+#year 21 - 2020
+pacl2020 <- ppc.plot(pacl$pp.interval.year21,pacl$data.year21)+labs(title = "a) Kelp Bass experimental reef 2020")+scale_x_discrete(labels = pacl.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 22 - 2021
+pacl2021 <-ppc.plot(pacl$pp.interval.year22,pacl$data.year22)+labs(title = "b) Kelp Bass experimental reef 2021")+scale_x_discrete(labels = pacl.ppc.bins)+
+  labs(y = "Density")+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 15),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 23 - 2022
+pacl2022 <-ppc.plot(pacl$pp.interval.year23,pacl$data.year23)+labs(title = "c) Kelp Bass experimental reef 2022")+scale_x_discrete(labels = pacl.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
 
+
+#mitigation reef 
 pacl.m <- post.pred.check(Data = fishtotal.m.pacl, fix.param = fix.param.m.pacl, Post.fit = Post.fit.p.a.pacl.m, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
+#year 12 - 2020
+pacl2020.m <- ppc.plot(pacl.m$pp.interval.year12,pacl.m$data.year12)+labs(title = "d) Kelp Bass mitigation reef 2020")+scale_x_discrete(labels = pacl.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 13 - 2021
+pacl2021.m <- ppc.plot(pacl.m$pp.interval.year13,pacl.m$data.year13)+labs(title = "e) Kelp Bass mitigation reef 2021")+scale_x_discrete(labels = pacl.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 14 - 2022
+pacl2022.m <- ppc.plot(pacl.m$pp.interval.year14,pacl.m$data.year14)+labs(title = "f) Kelp Bass mitigation reef 2022")+scale_x_discrete(labels = pacl.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
 
-#best Barred Sandbass model
+(pacl2020+pacl2020.m)/(pacl2021+pacl2021.m)/(pacl2022+pacl2022.m+
+  plot_layout(axis_titles = "collect"))
+# ggsave("post.pred.p.a.pacl.pdf", width = 11, height = 10,units = "in",path = here("SSIPM_output","plots"))
+```
+
+```{r}
+pane.ppc.bins <- c("9 - 20", "21 - 31","32 - 42", "43 - 54","55 - 65", "66 - 76", "77 - 88", "89 - 99", "100 - 110", "111 - 122")
+
 pane <- post.pred.check(Data = fishtotal.pane,fix.param = fix.param.pane, Post.fit = Post.fit.p.a.pane, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
-
+#year 21 - 2020
+pane2020 <- ppc.plot(pane$pp.interval.year21,pane$data.year21)+labs(title = "a) Barred Sand Bass experimental reef 2020")+scale_x_discrete(labels = pane.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 22 - 2021
+pane2021 <-ppc.plot(pane$pp.interval.year22,pane$data.year22)+labs(title = "b) Barred Sand Bass experimental reef 2021")+scale_x_discrete(labels = pane.ppc.bins)+
+  labs(y = "Density")+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 15),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 23 - 2022
+pane2022 <-ppc.plot(pane$pp.interval.year23,pane$data.year23)+labs(title = "c) Barred Sand Bass experimental reef 2022")+scale_x_discrete(labels = pane.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
 
 pane.m <- post.pred.check(Data = fishtotal.m.pane,fix.param = fix.param.m.pane, Post.fit = Post.fit.p.a.pane.m, ipm.burnin = FALSE)
-# ggsave("post.pred.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+
+#year 12 - 2020
+pane2020.m <- ppc.plot(pane.m$pp.interval.year12,pane.m$data.year12)+labs(title = "d) Barred Sand Bass mitigation reef 2020")+scale_x_discrete(labels = pane.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 13 - 2021
+pane2021.m <- ppc.plot(pane.m$pp.interval.year13,pane.m$data.year13)+labs(title = "e) Barred Sand Bass mitigation reef 2021")+scale_x_discrete(labels = pane.ppc.bins)+
+theme(axis.text.x = element_blank(),
+      axis.title.x = element_blank(),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+#year 14 - 2022
+pane2022.m <- ppc.plot(pane.m$pp.interval.year14,pane.m$data.year14)+labs(title = "f) Barred Sand Bass mitigation reef 2022")+scale_x_discrete(labels = pane.ppc.bins)+
+  xlab("Length (cm)")+
+theme(axis.text.x = element_text(size = 13, angle = 45,hjust = 1),
+      axis.title.x = element_text(size = 15),axis.title.y = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 15))
+
+(pane2020+pane2020.m)/(pane2021+pane2021.m)/(pane2022+pane2022.m+
+  plot_layout(axis_titles = "collect"))
+# ggsave("post.pred.p.a.pane.pdf", width = 11, height = 10,units = "in",path = here("SSIPM_output","plots"))
 
 ```
 
@@ -1278,6 +1433,9 @@ f <- data.frame(test %>% select("F","nb.k")) %>%
 
 y = as.character(c(2000:2022)) #column titles for years
 y.m = as.character(c(2009:2022)) #column titles for mitigation years
+
+first.years = as.character(c(2000:2003))
+first.years.m = as.character(c(2009:2012))
 density.plot <- function(data,post.fit,fix.param, transect, year_name,ipm.i, ipm.r, ggtitle ){
   
 t.sect <- data.frame( t(transect)) %>%
@@ -1324,15 +1482,65 @@ plot <- ggplot()+
 return(plot)
 }
 
+
+density.plot.fist.years <- function(data,post.fit,fix.param, transect, year_name, first.years, ipm.i, ipm.r, ggtitle ){
+  
+  #gather survey area per year 
+t.sect <- data.frame( t(transect)) %>%
+  mutate(year = as.character(rownames(.)))
+
+# #### Survey density
+tfish <- data %>% add_column(size = c(1:nrow(data))) %>%
+  pivot_longer(cols = c(1:length(data)), names_to = "year",values_to = "count") %>%
+  left_join(., t.sect) %>%
+  mutate(density = count/t.transect.) %>% 
+  filter(year %in% first.years) # filter for the first few years
+
+#size distribution from ipm using median values
+median <- c(unname( sapply(data.frame(post.fit$Values), median)))
+names(median) <- colnames(post.fit$Values)
+
+ipm.plot <- run.IPM(fix.param = fix.param, cand.param = median, Data =  data, burnin = FALSE, ipm.i = ipm.i,ipm.r = ipm.r)
+
+sizedist <- data.frame(ipm.plot$N)
+
+tipm <- sizedist %>% select(c(1:ncol(sizedist))) %>% #IPM with data fitting
+  rename_all(~year_name) %>%  #rename columns to match year
+  add_column(size = c(1:nrow(sizedist))) %>% #add sizes
+  mutate(size = size*fix.param$dx) %>%
+  pivot_longer(cols = 1:ncol(sizedist),
+               names_to = "year",
+               values_to = "N") %>%
+  group_by(year)%>% 
+  filter(year %in% first.years)# filter for the first few years
+
+plot <- ggplot()+
+  geom_line(data = tfish, aes(x = size, y = density*10000), color = "black", linewidth = 0.4) +
+  geom_line(data = tipm, aes(x = size, y = N*10000), color = "red")+
+  facet_wrap(~year, scales = "free_y", ncol = 4) +
+  # facet_grid(vars(year), scales = "free_y")
+  scale_y_continuous("Individual per hectare", labels = label_number(accuracy = 1)) +
+    theme_bw()+
+  lims(x = c(0,80))+
+  labs(x = "Length (cm)")+
+  ggtitle(ggtitle)+
+  theme(legend.position = "none",
+        axis.text = element_text(size = 20),
+        strip.text = element_text(size = 20),
+        title = element_text(size = 20))
+
+return(plot)
+}
+
 ```
 
 ### California Sheephead
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.sepu, "p.a.sepu")
-# ggsave("trace.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
-# trace.plot(Post.fit.a.sepu,"a.sepu")
-ggsave("trace.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+# ggsave("trace.p.a.sepu_noyoy.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
+trace.plot(Post.fit.a.sepu,"a.sepu")
+# ggsave("trace.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.p.sepu,"p.sepu")
 # ggsave("trace.p.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
@@ -1348,7 +1556,7 @@ trace.plot(Post.fit.p.mitigation,"p.sepu.m")
 posterior.plot(fishtotal.sepu, Post.fit.p.a.sepu, model = "PA", ggtitle = "p.a.sepu")
 # ggsave("posterior.p.a.sepu.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
-# posterior.plot(fishtotal.m.sepu, Post.fit.p.a.mitigation, model = "PA", ggtitle = "p.a.sepu.m")
+
 posterior.plot(fishtotal.m.sepu, Post.fit.p.a.mitigation, model = "PA", ggtitle = "p.a.sepu.m")
 # ggsave("posterior.p.a.sepu.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 # posterior.plot(fishtotal.m.sepu, Post.fit.a.mitigation, model = "A", ggtitle = "a.sepu.m")
@@ -1357,13 +1565,29 @@ posterior.plot(fishtotal.m.sepu, Post.fit.p.a.mitigation, model = "PA", ggtitle 
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.p.a.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.sepu")
 # ggsave("density.p.a.sepu.pdf", width = 14, height = 14,units = "in",path = here("SSIPM_output","plots"))
 
+
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.p.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE,ggtitle = "p.sepu")
 # ggsave("density.p.sepu.pdf", width = 14, height = 14,units = "in",path = here("SSIPM_output","plots"))
 
 density.plot(data = fishtotal.sepu, post.fit = Post.fit.a.sepu, fix.param = fix.param.sepu, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.sepu")
 # ggsave("density.a.sepu.pdf", width = 14, height = 14,units = "in",path = here("SSIPM_output","plots"))
 
-#mitigation reef
+
+#first 4 years
+sepu.p.a.firstyears <- density.plot.fist.years(data = fishtotal.sepu, post.fit = Post.fit.p.a.sepu, fix.param = fix.param.sepu, first.years = first.years, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "Production & Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+sepu.a.firstyears <- density.plot.fist.years(data = fishtotal.sepu, post.fit = Post.fit.a.sepu, fix.param = fix.param.sepu, first.years = first.years, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+sepu.p.firstyears <- density.plot.fist.years(data = fishtotal.sepu, post.fit = Post.fit.p.sepu, fix.param = fix.param.sepu, first.years = first.years, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+sepu.p.a.firstyears/sepu.a.firstyears/sepu.p.firstyears+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.sepu.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
+##### mitigation reef
 density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.p.a.mitigation, fix.param = fix.param.m.sepu, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.sepu.m")
 # ggsave("density.p.a.sepu.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
 
@@ -1373,24 +1597,38 @@ density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.p.mitigation, fix.para
 density.plot(data = fishtotal.m.sepu, post.fit = Post.fit.a.mitigation, fix.param = fix.param.m.sepu, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.sepu.m")
 # ggsave("density.a.sepu.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
 
+
+#first four 
+#first 4 years
+sepu.p.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.sepu, post.fit = Post.fit.p.a.mitigation, fix.param = fix.param.m.sepu, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "Attraction & Production")+
+  theme(axis.text.x = element_blank())
+
+sepu.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.sepu, post.fit = Post.fit.a.mitigation, fix.param = fix.param.m.sepu, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank())
+
+sepu.p.firstyears.m <- density.plot.fist.years(data = fishtotal.m.sepu, post.fit = Post.fit.p.mitigation, fix.param = fix.param.m.sepu, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+sepu.p.a.firstyears.m/sepu.a.firstyears.m/sepu.p.firstyears.m+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.sepu.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
 ```
 
 ### Kelp Bass
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.pacl, "p.a.pacl")
-# ggsave("trace.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.a.pacl,"a.pacl")
-# ggsave("trace.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.p.pacl,"p.pacl")
-# ggsave("trace.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pacl.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
 trace.plot(Post.fit.p.a.pacl.m, "p.a.pacl.m")
-# ggsave("trace.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.a.pacl.m,"a.pacl.m")
-# ggsave("trace.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.p.pacl.m,"p.pacl.m")
-# ggsave("trace.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pacl.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
 # Posterior Plot - Best model
 posterior.plot(fishtotal.pacl, Post.fit.p.a.pacl, model = "PA", ggtitle = "p.a.pacl")
@@ -1409,7 +1647,23 @@ density.plot(data = fishtotal.pacl, post.fit = Post.fit.p.pacl, fix.param = fix.
 density.plot(data = fishtotal.pacl, post.fit = Post.fit.a.pacl, fix.param = fix.param.pacl, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pacl")
 # ggsave("density.a.pacl.pdf", width = 14, height = 14,units = "in",path = here("SSIPM_output","plots"))
 
-#mitigation reef
+
+# first four years
+pacl.p.a.firstyears <- density.plot.fist.years(data = fishtotal.pacl, post.fit = Post.fit.p.a.pacl, fix.param = fix.param.pacl, first.years = first.years, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE, ggtitle = "Production & Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pacl.a.firstyears <- density.plot.fist.years(data = fishtotal.pacl, post.fit = Post.fit.a.pacl, fix.param = fix.param.pacl, first.years = first.years, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pacl.p.firstyears <- density.plot.fist.years(data = fishtotal.pacl, post.fit = Post.fit.p.pacl, fix.param = fix.param.pacl, first.years = first.years, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+pacl.p.a.firstyears/pacl.a.firstyears/pacl.p.firstyears+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.pacl.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
+
+###### mitigation reef
 density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.p.a.pacl.m, fix.param = fix.param.m.pacl, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pacl.m")
 # ggsave("density.p.a.pacl.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
 
@@ -1418,24 +1672,39 @@ density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.p.pacl.m, fix.param = 
 
 density.plot(data = fishtotal.m.pacl, post.fit = Post.fit.a.pacl.m, fix.param = fix.param.m.pacl, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pacl.m")
 # ggsave("density.a.pacl.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
+
+# first four years
+pacl.p.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pacl, post.fit = Post.fit.p.a.pacl.m, fix.param = fix.param.m.pacl, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE, ggtitle = "Production & Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pacl.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pacl, post.fit = Post.fit.a.pacl.m, fix.param = fix.param.m.pacl, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pacl.p.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pacl, post.fit = Post.fit.p.pacl.m, fix.param = fix.param.m.pacl, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+pacl.p.a.firstyears.m/pacl.a.firstyears.m/pacl.p.firstyears.m+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.pacl.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
 ```
 
 ### Barred Sandbass
 ```{r}
 # experimental reef & save
 trace.plot(Post.fit.p.a.pane, "p.a.pane")
-# ggsave("trace.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.a.pane,"a.pane")
-# ggsave("trace.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pane.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.p.pane,"p.pane")
-# ggsave("trace.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pane.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
 trace.plot(Post.fit.p.a.pane.m, "p.a.pane.m")
-# ggsave("trace.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.a.pane.m,"a.pane.m")
-# ggsave("trace.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.a.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 trace.plot(Post.fit.p.pane.m,"p.pane.m")
-# ggsave("trace.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("output","plots"))
+# ggsave("trace.p.pane.m.pdf", width = 11, height = 8.5,units = "in",path = here("SSIPM_output","plots"))
 
 # Posterior Plot - Best model
 posterior.plot(fishtotal.pane, Post.fit.p.a.pane, model = "PA", ggtitle = "p.a.pane")
@@ -1454,6 +1723,20 @@ density.plot(data = fishtotal.pane, post.fit = Post.fit.p.pane, fix.param = fix.
 density.plot(data = fishtotal.pane, post.fit = Post.fit.a.pane, fix.param = fix.param.pane, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pane")
 # ggsave("density.a.pane.pdf", width = 14, height = 14,units = "in",path = here("SSIPM_output","plots"))
 
+#first four years
+pane.p.a.firstyears <- density.plot.fist.years(data = fishtotal.pane, post.fit = Post.fit.p.a.pane, fix.param = fix.param.pane, first.years = first.years, transect = transect, year_name = y, ipm.i = TRUE, ipm.r =TRUE, ggtitle = "Production & Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pane.a.firstyears <- density.plot.fist.years(data = fishtotal.pane, post.fit = Post.fit.a.pane, fix.param = fix.param.pane, transect = transect, first.years = first.years, year_name = y, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pane.p.firstyears <- density.plot.fist.years(data = fishtotal.pane, post.fit = Post.fit.p.pane, fix.param = fix.param.pane, first.years = first.years, transect = transect, year_name = y, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+pane.p.a.firstyears/pane.a.firstyears/pane.p.firstyears+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.pane.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
 #mitigation reef
 density.plot(data = fishtotal.m.pane, post.fit = Post.fit.p.a.pane.m, fix.param = fix.param.m.pane, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE,ggtitle = "p.a.pane.m")
 # ggsave("density.p.a.pane.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
@@ -1463,6 +1746,22 @@ density.plot(data = fishtotal.m.pane, post.fit = Post.fit.p.pane.m, fix.param = 
 
 density.plot(data = fishtotal.m.pane, post.fit = Post.fit.a.pane.m, fix.param = fix.param.m.pane, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE,ggtitle = "a.pane.m")
 # ggsave("density.a.pane.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
+#first four years
+# first four years
+pane.p.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pane, post.fit = Post.fit.p.a.pane.m, fix.param = fix.param.m.pane, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =TRUE, ggtitle = "Production & Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pane.a.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pane, post.fit = Post.fit.a.pane.m, fix.param = fix.param.m.pane, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = TRUE, ipm.r =FALSE, ggtitle = "Attraction")+
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+pane.p.firstyears.m <- density.plot.fist.years(data = fishtotal.m.pane, post.fit = Post.fit.p.pane.m, fix.param = fix.param.m.pane, first.years = first.years.m, transect = transect_mitigation, year_name = y.m, ipm.i = FALSE, ipm.r =TRUE, ggtitle = "Production")
+
+pane.p.a.firstyears.m/pane.a.firstyears.m/pane.p.firstyears.m+plot_layout(axis_titles = "collect")
+# ggsave("density.first.four.p.a.pane.m.pdf", width = 14, height = 11,units = "in",path = here("SSIPM_output","plots"))
+
 ```
 
 
@@ -1486,7 +1785,7 @@ median(Post.fit.p.a.pane$Values[,48])
 median(Post.fit.p.a.pane.m$Values[,30])
 ```
 
-Estimate of number of fish that move/recruit per year (not as density)
+## Estimate of number of fish that move/recruit per year (not as density)
 ### California Sheephead
 ```{r}
 #immigrant
@@ -1577,15 +1876,16 @@ fishing.mort.prior <- data.frame("species_code" = c("sepu","sepu.m","pacl","pacl
 #plot
 ggplot()+
   geom_violin(fishing.mort.posterior %>% mutate(species_code = factor(species_code, levels=c("sepu","sepu.m","pacl","pacl.m","pane","pane.m")),
-                                                reef = factor(reef, levels=c("Experimental", "Mitigation"))) %>%  #refactor species
-              filter(species_code %in% c("sepu","sepu.m")), #only sepu
+                                                reef = factor(reef, levels=c("Experimental", "Mitigation"))),  #refactor species
+              # filter(!species_code %in% c("sepu","sepu.m")), #only sepu
  mapping = aes(x = species_code, y = posterior,fill = reef))+
   
   geom_point(fishing.mort.prior%>% mutate(species_code = factor(species_code, levels=c("sepu","sepu.m","pacl","pacl.m","pane","pane.m")),
- reef = factor(reef, levels=c("Experimental", "Mitigation"))) %>%  #refactor species 
- filter(species_code %in% c("sepu","sepu.m")), #only sepu
- mapping = aes(x = species_code, y = prior, color = "black"), size = 4)+ 
-  scale_y_continuous(limits = c(0.05, 0.95), breaks = seq(0.05,0.95,0.1))+
+ reef = factor(reef, levels=c("Experimental", "Mitigation"))),  #refactor species 
+ # filter(!species_code == c("sepu","sepu.m")), #only sepu
+ mapping = aes(x = species_code, y = prior, color = "black"), size = 4
+ )+ 
+  # scale_y_continuous(limits = c(0.05, 0.95), breaks = seq(0.05,0.95,0.1))+
   # scale_x_discrete( labels = c("Experimental", "Mitigation","Experimental","Mitigation","Experimental","Mitigation"))+
   theme_bw()+
   theme(axis.text = element_text(size = 20),
@@ -1626,6 +1926,8 @@ songs %>%
 site_names <- c("E" = "Experimental Reef",
                 "M" = "Mitigation Reef",
                 "N" = "Natural Reef")
+#add label
+tag.count <- data.frame(phase_built_code = c("E","M"), tag = c("a)","b)"))%>% mutate( phase_built_code = fct_relevel(phase_built_code, c("E","M")))
 
 songs %>% 
   filter(phase_built_code %in% c("E", "M", "NA"),
@@ -1635,12 +1937,13 @@ songs %>%
   mutate(n = 1) %>% 
   summarise(count = sum(n), .by = c(year,phase_built_code, species_code)) %>% 
   ggplot()+
-  geom_point(aes(x = year, y = count, group = species_code, color = species_code))+
-  geom_line(aes(x = year, y = count, group = species_code, color = species_code))+
+  geom_point(aes(x = year, y = count, group = species_code, color = species_code), size = 2)+
+  geom_line(aes(x = year, y = count, group = species_code, color = species_code), size = 2, alpha = 0.5)+
+  geom_text(data = tag.count, aes(x = 2001, y = 820, label = tag),size = 10, fontface = "bold")+
   # geom_col(aes(x = year, y = count, group = species_code, fill = species_code), position = position_dodge(), color = "gray50", width = 1)+
   facet_wrap(~phase_built_code, labeller = as_labeller(site_names))+
   # scale_color_viridis_d()+
-  scale_color_brewer(palette = "Dark2")+
+  scale_color_brewer(palette = "Dark2",labels = c("Kelp Bass", "Barred Sand Bass", "California Sheephead"))+
   # scale_color_grey(start = 0, end = 0.7)+
   geom_hline(yintercept = 100, linetype = "dashed")+
   labs(color = "Species", y = "Count")+
@@ -1735,48 +2038,30 @@ im.data <- left_join(im.fish.data, im.transect.data) %>%  #merge transect and fi
   mutate(up_cl = average+se, low_cl = average-se)
 
 
-  ######---Below is aveage by year, need average by transect x year to get se
-# im.data <- songs %>%
-#   filter( species_code %in% c("SEPU","PACL","PANE"),
-#           reef_code %in% c("SMK",'WNR'),
-#          transtype_strata %in% c("BOTTOM",NA),
-#          phase_built_code%in% c("N","E","M")) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code,phase_built_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year, values_from = tot_count) %>%
-#   # full_join(.,lengthxreef) %>%
-#   # mutate(species_code = "SEPU") %>%
-#   # replace(is.na(.),0) %>%
-#   drop_na() %>%
-#   pivot_longer(cols = c('2000':'2022'),
-#                names_to = "year",values_to = "count") %>%
-#   mutate(year = as.factor(year)) %>%
-#   left_join(.,transect.reefs) %>%
-#   filter(total_length>8) %>% # Only juvenile and adult fishes
-#   summarise(sum = sum(count), .by = c(year,reef_code,species_code,phase_built_code,area_surveyed)) %>%
-#   mutate(density = sum/area_surveyed)
 
 # # relabel site 
 site_names <- c("E" = "Experimental Reef",
                 "M" = "Mitigation Reef",
                 "N" = "Natural Reef")
+#add plot labels
+tag <- data.frame(phase_built_code = c("N","E","M"), tag = c("a)","b)","c)"))%>% mutate( phase_built_code = fct_relevel(phase_built_code, c("N","E","M")))
 
 #actual values 
 im.data %>% 
   mutate(year = as.character(year)) %>% 
   mutate(year = as.numeric(year),
          phase_built_code = fct_relevel(phase_built_code, c("N","E","M"))) %>% 
-  filter(!(phase_built_code == "M" & year <2008)) %>% #remove points prior to mitigation reef survey
-  # filter(total_length>8) %>%  summarise(sum = sum(density), .by = c(year,species_code)) %>% 
-  ggplot() + 
-  geom_line(aes(x = year, y = average*10000, group = species_code, color = species_code), size = 2)+
-  geom_errorbar(aes(y = average*10000, x = year, ymin = low_cl*10000, ymax = up_cl*10000, colour = species_code), size = 0.7)+
-  geom_point(aes(x = year, y = average*10000, group = species_code, color = species_code), fill = "black", size = 3)+
-
-  # geom_col(aes(x = year, y = density*10000, group = species_code, fill = species_code),color = "grey20", position = "dodge", width = 0.7 )+
-  theme_bw()+
-  # scale_color_viridis_d()+
+  filter(!(phase_built_code == "M" & year <2008)) %>% #remove points 
   
+ggplot() + 
+  geom_vline(xintercept = c(1999,2008,2020), linetype = "dashed")+
+  geom_line(aes(x = year, y = average*10000, group = species_code, color = species_code), size = 2, alpha = 0.5)+
+  geom_errorbar(aes(y = average*10000, x = year, ymin = low_cl*10000, ymax = up_cl*10000, colour = species_code), size = 0.7)+
+  geom_point(aes(x = year, y = average*10000, group = species_code, color = species_code), fill = "black", size = 3,alpha = 0.8)+
+  
+  geom_text(data = tag , aes(x = 1999, y = 900, label = tag), size = 8, fontface = "bold")+ # add labels
+  
+  theme_bw()+
   labs(y = "Individuals per hectare", x = element_blank(), fill = "Species", color = "Species")+
   facet_wrap(~phase_built_code, ncol = 1, labeller = as_labeller(site_names))+ 
   theme(axis.text.x = element_text( size = 20), axis.text.y = element_text(size = 20), strip.text.x = element_text(size =20),
@@ -1785,231 +2070,6 @@ im.data %>%
         axis.title.y = element_text(size = 25),
         legend.spacing.y = unit(1, "cm"))+
   guides(color = guide_legend(byrow = TRUE))+
-  # scale_color_discrete(labels = c("Kelp Bass", "Barred Sand Bass", "California Sheephead"))+
   scale_color_brewer(palette = "Dark2",labels = c("Kelp Bass", "Barred Sand Bass", "California Sheephead"))
   
-################## Median size per year 
-# im.mean <- songs %>%
-#   filter( species_code %in% c("SEPU","PACL","PANE"),
-#           reef_code %in% c("SMK",'WNR'),
-#          transtype_strata %in% c("BOTTOM",NA),
-#          phase_built_code%in% c("N","E","M")) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code,phase_built_code, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year, values_from = tot_count) %>%
-#   # full_join(.,lengthxreef) %>%
-#   # mutate(species_code = "SEPU") %>%
-#   replace(is.na(.),0) %>%
-#   pivot_longer(cols = c('2000':'2022'),
-#                names_to = "year",values_to = "count") %>%
-#   # mutate(year = as.factor(year)) %>%
-#   left_join(.,transect.reefs) %>%
-#   # filter(total_length>8) %>% # Only juvenile and adult fishes
-#   uncount(count) %>%
-#   mutate(tally = 1) %>% 
-#   summarise(mean = mean(total_length),
-#             sd = sd(total_length),
-#             n = sum(tally),
-#             .by = c(reef_code,phase_built_code,species_code,year)) %>% 
-#   mutate(up_cl =mean+ (sd/sqrt(n)),
-#          low_cl = mean - (sd/sqrt(n))) %>% 
-#   mutate(year = as.factor(year))
-#   
-# # relabel 
-# site_names <- c("E" = "Experimental Reef",
-#                 "M" = "Mitigation Reef",
-#                 "N" = "Natural Reef")
-# 
-# im.mean %>% mutate(year = as.character(year)) %>% mutate(year = as.numeric(year)) %>%  ggplot() + geom_line(aes(x = year, y = mean, group = species_code, color = species_code) )+ 
-#   geom_point(aes(x = year, y = mean, group = species_code, color = species_code), alpha = 0.6 )+
-#   geom_ribbon(aes(x = year, ymax = up_cl,ymin = low_cl,group =species_code,fill = species_code),alpha = 0.2)+
-#   theme_bw()+
-#   scale_color_viridis_d( option = "H")+
-#   scale_fill_viridis_d()+
-#   labs(y = "Survey Mean size (cm)", x = element_blank(), fill = "Species", color = "Species")+
-#   facet_wrap(~phase_built_code, labeller = as_labeller(site_names))+
-#   theme(axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),strip.text.x = element_text(size =12))
 ```
-
-
-#### TEST size distribution
-```{r}
-#####------------- Immigration size distribution
-## postfit.a
-# Names <- c(paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
-# Means <- c(unname( sapply(data.frame(Post.fit_a$Values[,24:47]), median)))
-# SDs <- c( rep(i.sd,dim(fishtotal)[2]), F.sd)
-# Type <- c( rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment,
-
-## postfit.p
-# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))), 'F')
-# Means <- c(unname( sapply(data.frame(Post.fit_p$Values[,c(1:23,47)]), median)))
-# SDs <- c(rep(r.sd,dim(fishtotal)[2]), F.sd)
-# Type <- c(rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment, immigration, fishing, and process error
-
-## postfit.a_p
-# Names <- c(paste0("r",c(1:(dim(fishtotal)[2]))),paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
-# Means <- c(unname( sapply(data.frame(Post.fit_p_a$Values[,1:47]), median)))
-# SDs <- c(rep(r.sd,dim(fishtotal)[2]), rep(i.sd,dim(fishtotal)[2]), F.sd)
-# Type <- c(rep('lognormal',dim(fishtotal)[2]), rep('lognormal',dim(fishtotal)[2]), "lognormal") #type for recruitment, immigration, fishing, and process error
-# 
-# Prior <- list(Names,Means,SDs,Type)
-# names(Prior) <- c('Names','Means','SDs','Type')
-# 
-# 
-# c(fix.param,Prior)
-#   M = fix.param$MCMClen
-#   Chains = fix.param$MCMCchains
-
-######-------Immigration ipm--------########
-# Names.im <- c(paste0("r",c(1:(dim(fishtotal)[2]))),paste0("i",c(1:(dim(fishtotal)[2]))), 'F')
-#
-# i.cand.param <-  c( rep(1,51), 0, 0.25,0) #use fixed cand.param F value
-#       names(i.cand.param) <- c(paste0("r",c(0:50)), "i",'F','error')
-#       i.data <- as.data.frame( matrix(NA,nrow = nrow(im.smk), ncol = ncol(im.smk)))
-#       i.data[,c(1:50)] <- NA #not reliant on data, and ran to distant future
-#       i.ipm <- run.IPM(fix.param, i.cand.param, i.data, burnin = FALSE, burnin.i = FALSE, ipm.i = FALSE)
-#       stbstate <- i.ipm$N[,50] # Distant future based on IPM
-#       stbstate[c(1:fix.param$Ifish)] <- 0 #exclude nonimmigrant sizes
-#
-#     #replace Ivec with new stable state distribution
-#     fix.param$Ivec <- stbstate/sum(stbstate*fix.param$dx)
-######-------Immigration wnr initial year--------########
-# total_length <-data.frame(total_length =  c(1:nrow(fishtotal)))
-# im.wnr.init <- songs %>%
-#   filter( species_code == "SEPU",
-#       year == 2000,
-#          transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, reef_code, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year,values_from = tot_count) %>%
-#   drop_na() %>%
-#   filter(reef_code == "WNR") %>%  #data from one site
-#   full_join(.,total_length) %>%
-#   filter(total_length %in% c(1:max(total_length))) %>%
-#   arrange(total_length) %>%  # re-order dataframe by numerical value
-#   select(4) %>% # choose only count of fish
-#   replace(is.na(.),0) %>% #add NA
-#     # select("2000") %>%
-#   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
-#
-# tot.im.wnr.init <- data.frame( length = rownames(im.wnr.init), count = im.wnr.init$sum) %>%
-#   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
-#
-# wnr.init.den <- density(tot.im.wnr.init$length)
-# af <- approxfun(wnr.init.den$x,wnr.init.den$y) #linear approximation of the values from density plot values
-# temp <- c(fix.param$x) #length interval
-# a <- af(temp) # approximate density based on
-# a[ is.na(a)  ] = 1e-323
-# a[c(1:fix.param$Ifish)] <- 0 #recruits are not moving
-# fix.param$Ivec <- a/sum(a*fix.param$dx)
-# plot(cbind(temp,a))
-######-------Immigration bk culmative size dist--------########
-#
-#       im.bk <- songs %>%
-#   filter( species_code == "SEPU",
-#           reef_code %in% c("BK"),
-#          transtype_strata %in% c("BOTTOM",NA)) %>%
-#   summarise(tot_count = sum(count), .by = c(year, species_code, total_length )) %>%
-#   drop_na(total_length) %>%
-#   pivot_wider(names_from = year,values_from = tot_count) %>%
-#   drop_na() %>%
-#   # filter(reef_code%in% c("BK","SMK")) %>%  #data from one site
-#   full_join(.,total_length) %>%
-#   filter(total_length %in% c(1:max(total_length))) %>%
-#   arrange(total_length) %>%  # re-order dataframe by numerical value
-#   select(4:length(fishtotal)) %>% # choose only count of fish
-#   replace(is.na(.),0) %>% #add NA
-#     # select("2000") %>%
-#   mutate(sum = rowSums( across(where(is.numeric))))  # sum across the row
-#
-# tot.bk <- data.frame( length = rownames(im.bk), count = im.bk$sum) %>%
-#   uncount(count) %>% mutate(length = as.numeric(length)) # get overall value
-#
-# bk.den <- density(tot.bk$length)
-# af <- approxfun(bk.den$x,bk.den$y) #linear approximation of the values from density plot values
-# temp <- c(fix.param$x) #length interval
-# a <- af(temp) # approximate density based on
-# a[ is.na(a)  ] = 1e-323
-# a[c(1:fix.param$Ifish)] <- 0
-# fix.param$Ivec <- a/sum(a*fix.param$dx)
-# #
-# plot(cbind(temp,a))
-# a <- ggplot_build( ggplot(tot.bk)+
-#   geom_density(aes(x = length), bw = fix.param$dx))
-# b <- data.frame(a$data) %>% select(x,y)
-
-######-------Immigration--------########
-# 
-# 
-# Values <- data.frame(matrix(NA,nrow=1,ncol =length(Prior.pane$Names)))
-# Values[1,] <- exp(Prior.pane$Means)
-# colnames(Values) <- Names
-# test <- run.IPM(fix.param = fix.param.pane, cand.param =  Values, fishtotal.pane, burnin = FALSE)
-# sizedist <- data.frame(test$N)
-# 
-# #
-# #
-# y = as.character(c(2000:2022))
-# t.sect <- data.frame( t(transect)) %>%
-#   mutate(year = as.character(rownames(.)))
-# # #### Survey density
-# tfish <- fishtotal.pane %>% add_column(size = c(1:nrow(fishtotal.pane)), .before = '2000') %>%
-#   pivot_longer(cols = c("2000":"2022"), names_to = "year",values_to = "count") %>%
-#   left_join(., t.sect) %>%
-#   mutate(density = count/t.transect.)
-# 
-# tipm <- sizedist %>% select(c(1:23)) %>% #IPM with data fitting
-#   rename_all(~y) %>%  #rename columns to match year
-#   add_column(size = c(1:nrow(sizedist)), .before = '2000') %>% #add sizes
-#   mutate(size = size*fix.param.sepu$dx) %>%
-#   pivot_longer(cols = "2000":"2022",
-#                names_to = "year",
-#                values_to = "N") %>%
-#   group_by(year)
-# 
-# ggplot()+
-#   geom_line(data = tipm, aes(x = size, y = N), color = "red")+
-#   geom_line(data = tfish, aes(x = size, y = density, color = "Survey density"), linetype = "dashed") +
-#   facet_wrap(~year, scales = "free_y") +
-#   scale_y_continuous("survey density", labels = scales::label_comma()) +
-#     theme_bw()+
-#   lims(x = c(0,80))+
-#   labs(x = "Length (cm)")+
-#   ggtitle("Attraction & Production IPM fit to data")+
-#   theme(legend.position = "none",
-#         axis.text = element_text(size = 15),strip.text = element_text(size = 15),
-#         title = element_text(size = 15))
-
-
-######--------- compare ipm im size distr to data
-# total_length <-data.frame(total_length =  c(1:nrow(fishtotal)))
-# reef <- data.frame(reef_code= c("WNR","BK","SMK"))
-# lengthxreef <- cross_join(total_length,reef)
-# 
-
-
-```
- 
-```{r}
-#TEST Check recruitment density
-
-#PACL phase1
-fishtotal.pacl[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-#phase2
-fishtotal.m.pacl[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-
-#SEPU phase1
-fishtotal.sepu[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-#phase2
-fishtotal.m.sepu[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) %>% left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-
-#PANE phase 1
-fishtotal.pane[c(1:8),] %>% pivot_longer(cols = c(1:23), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year)
-# left_join(.,as.data.frame(transect) %>% pivot_longer(c(1:23), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-#phase2
-fishtotal.m.pane[c(1:8),] %>% pivot_longer(cols = c(1:14), names_to = "year",values_to = "count") %>% summarise(sum = sum(count), .by = year) 
-# left_join(.,as.data.frame(transect_mitigation) %>% pivot_longer(c(1:14), names_to = "year",values_to = "transect")) %>% mutate("density" = sum/transect) %>% select(c(year, density))
-```
- 
- 

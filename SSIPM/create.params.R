@@ -19,8 +19,6 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
     Lvar = 0.24 # CV of length (dimensionless)
     Rmean = 5.89 # average size of new recruits
     Rsd = 1.53 # sd of recruit size distribution
-    Immean = 27.0 # average size of immigrant
-    Imsd = 9.96 #sd of immigrant size
     
     # Fishing before & after regulation change in 2013
     Lfish1 = 30.5 # length of 50% recruitment to fishery (cm) - #Catch regulations year from survey start for fishery 
@@ -33,7 +31,6 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
 
     
     # IPM details
-    # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
     x = 1:(ceiling(Linf*2))
     meshmax = ceiling(Linf*2)
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
@@ -74,8 +71,6 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
       Lvar = 0.24 # CV of length (dimensionless)
       Rmean = 5.89 # average size of new recruits
       Rsd = 1.53 # sd of recruit size distribution
-      Immean = 30.8 # average size of immigrant
-      Imsd = 9.55 #sd of immigrant size
       
       # Fishing before & after regulation change in 2013
       Lfish1 = 30.5 # length of 50% recruitment to fishery (cm)
@@ -87,7 +82,6 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
       Fsd2 = 5.6 # sd of harvest size 
       
       # IPM details
-      # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
       x = 1:(ceiling(Linf*2))
       meshmax = ceiling(Linf*2)
       dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
@@ -127,20 +121,16 @@ create.params <- function(Sp,MCMClen = 100,MCMCchains =2, ogive = NULL, regulati
     Rsd = 2.14 # sd of recruit size distribution
     Fmean = 38.2 # average size of harvest
     Fsd = 8.6 # sd of harvest size 
-    Immean = 30.3 # average size of immigrant
-    Imsd = 9.96 #sd of immigrant size
+ 
     
     # IPM details 
-    # x = seq(0,Linf*2,length.out=meshsize) # grid of length intervals
     x = 1:(ceiling(Linf*2))
     meshmax = ceiling(Linf*2)
     dx = diff(x[1:2]) # grid width (needed for midpoint rule integration)
     
     # Recruit size distribution
     Rvec = dnorm(x,mean=Rmean,sd=Rsd)
-    # Rvec.tmp[length(x[x<9]):meshsize] = 0 #size cutoff for YOY (recruit)
-    # Rvec = Rvec.tmp/sum(Rvec.tmp*fix.param$dx) #standardize probability density
-    # 
+    
     # Fishing selectivity
     F.sel = pnorm(x,mean = Fmean, sd = Fsd) #no change in fishing regulation
     F.sel1 = NULL
